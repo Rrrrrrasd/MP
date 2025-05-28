@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">BitcoinTracker</string>
+    <string name="bitcoin_price_label">Bitcoin Price</string>
+    <string name="loading_price">로딩 중...</string>
+    <string name="time_1d">1D</string>
+    <string name="time_5d">5D</string>
+    <string name="time_1m">1M</string>
+    <string name="time_6m">6M</string>
+    <string name="time_1y">1Y</string>
+    <string name="time_all">ALL</string>
+    <string name="retry">재시도</string>
+</resources>
