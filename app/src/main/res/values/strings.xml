@@ -9,4 +9,10 @@
     <string name="time_1y">1Y</string>
     <string name="time_all">ALL</string>
     <string name="retry">재시도</string>
+    <string name="show_prediction_button_text">오늘의 종가 예측 보기</string>
+    <string name="title_activity_prediction">오늘의 종가 예측 결과</string>
+    <string name="prediction_loading">예측 값을 계산 중입니다...</string>
+    <string name="prediction_failed">예측 값을 가져오는데 실패했습니다.</string>
+    <string name="krw_currency_symbol">₩</string>
+    <string name="exchange_rate_unavailable">(환율 정보 없음)</string>
 </resources>
