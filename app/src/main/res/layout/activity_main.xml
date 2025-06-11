@@ -12,54 +12,73 @@
         android:id="@+id/tvTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="20dp" android:text="@string/bitcoin_price_label"
+        android:layout_marginTop="20dp"
+        android:text="@string/bitcoin_price_label"
         android:textColor="@color/text_secondary_dark"
         android:textSize="20sp"
         android:textStyle="bold"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <ImageButton
+        android:id="@+id/btnRefresh"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/ic_refresh"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/retry"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/tvTitle"
+        app:layout_constraintBottom_toBottomOf="@id/tvTitle" />
+
     <TextView
         android:id="@+id/tvBitcoinPrice"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp" android:text="@string/loading_price"
+        android:layout_marginTop="24dp"
+        android:text="@string/loading_price"
         android:textColor="@color/text_primary_dark"
         android:textSize="48sp"
         android:textStyle="bold"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tvTitle"
         app:layout_constraintBottom_toTopOf="@+id/tvPriceChange"
-        app:layout_constraintVertical_chainStyle="spread" /> <TextView
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tvTitle"
+        app:layout_constraintVertical_chainStyle="spread" />
+
+    <TextView
         android:id="@+id/tvPriceChange"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp" android:textColor="@color/text_secondary_dark"
+        android:layout_marginTop="8dp"
+        android:textColor="@color/text_secondary_dark"
         android:textSize="24sp"
-        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/priceChart"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tvBitcoinPrice"
-        app:layout_constraintBottom_toTopOf="@+id/priceLineChart"
         tools:text="+275.30 (+0,72%)" />
 
-    <com.github.mikephil.charting.charts.LineChart
-        android:id="@+id/priceLineChart"
+    <com.github.mikephil.charting.charts.CombinedChart
+        android:id="@+id/priceChart"
         android:layout_width="0dp"
-        android:layout_height="250dp" android:layout_marginTop="24dp" app:layout_constraintEnd_toEndOf="parent"
+        android:layout_height="250dp"
+        android:layout_marginTop="24dp"
+        app:layout_constraintBottom_toTopOf="@+id/llTimeFilters"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tvPriceChange"
-        app:layout_constraintBottom_toTopOf="@+id/llTimeFilters" />
+        app:layout_constraintTop_toBottomOf="@id/tvPriceChange" />
 
     <LinearLayout
         android:id="@+id/llTimeFilters"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginTop="24dp" app:layout_constraintTop_toBottomOf="@id/priceLineChart"
+        android:layout_marginTop="24dp"
+        app:layout_constraintTop_toBottomOf="@id/priceChart"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toTopOf="@+id/tvBottomInfo" >
+        app:layout_constraintBottom_toTopOf="@+id/tvBottomPredict" >
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn1Day"
@@ -152,10 +171,11 @@
     </LinearLayout>
 
     <TextView
-        android:id="@+id/tvBottomPredict"
+        android:id="@+id/tvBottomInfo"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp" android:padding="16dp"
+        android:layout_marginTop="24dp"
+        android:padding="16dp"
         android:background="@color/medium_gray"
         android:textColor="@color/text_primary_dark"
         android:textSize="24sp"

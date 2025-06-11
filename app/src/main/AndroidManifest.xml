@@ -30,6 +30,8 @@
             android:label="@string/title_activity_prediction"
             android:parentActivityName=".MainActivity" />
 
+
+
     </application>
 
 </manifest>

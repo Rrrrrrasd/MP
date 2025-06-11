@@ -11,7 +11,6 @@
     <color name="positive_green">#4CAF50</color>
     <color name="negative_red">#F44336</color>
 
-    <color name="time_filter_button_default_background">@color/dark_gray</color>
+    <color name="chart_blue">#3399FF</color> <color name="sma_5_color">#FFD700</color> <color name="sma_20_color">#9400D3</color> <color name="time_filter_button_default_background">@color/dark_gray</color>
     <color name="time_filter_button_selected_background">@color/light_blue_selected</color>
 </resources>
-

@@ -3,6 +3,7 @@ package com.example.mp_btc // 적절한 패키지명으로 변경
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.Typeface
 import android.os.Bundle
 import android.os.Handler
@@ -21,8 +22,12 @@ import com.example.mp_btc.model.Binance24hrTickerResponse
 import com.example.mp_btc.model.KeximExchangeRate // 한국수출입은행 API 응답 모델
 import com.example.mp_btc.network.ApiClient
 import com.example.mp_btc.network.KeximApiClient // 한국수출입은행 API 클라이언트
-import com.github.mikephil.charting.charts.LineChart
+import com.github.mikephil.charting.charts.CombinedChart
 import com.github.mikephil.charting.components.XAxis
+import com.github.mikephil.charting.data.CandleData
+import com.github.mikephil.charting.data.CandleDataSet
+import com.github.mikephil.charting.data.CandleEntry
+import com.github.mikephil.charting.data.CombinedData
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
@@ -56,7 +61,9 @@ class MainActivity : AppCompatActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private val updateIntervalMillis: Long = 3000000
 
-    private lateinit var lineChart: LineChart
+    // LineChart -> CombinedChart로 변경
+    private lateinit var chart: CombinedChart
+    private var currentDaysPeriod: String = "1" // 현재 선택된 기간 저장 변수
 
     private var tflite: Interpreter? = null
     private val LOOK_BACK = 5
@@ -94,9 +101,17 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        lineChart = binding.priceLineChart
+        // 차트 ID 변경에 따라 바인딩 수정
+        chart = binding.priceChart
         setupChart()
         setupButtonListeners()
+
+        // 새로고침 버튼 리스너 추가
+        binding.btnRefresh.setOnClickListener {
+            Toast.makeText(this, "새로고침 중...", Toast.LENGTH_SHORT).show()
+            fetchBitcoinPrice()
+            fetchHistoricalData(currentDaysPeriod)
+        }
 
         try {
             tflite = Interpreter(loadModelFile())
@@ -109,11 +124,11 @@ class MainActivity : AppCompatActivity() {
 
         binding.btn1Day.post {
             updateButtonSelectionUI(binding.btn1Day)
-            fetchHistoricalData("1")
+            fetchHistoricalData(currentDaysPeriod)
         }
-        fetchExchangeRate() // 앱 시작 시 환율 정보 가져오기 (fetchBitcoinPrice는 환율 로드 후 호출됨)
+        fetchExchangeRate()
 
-        binding.tvBottomPredict.setOnClickListener {
+        binding.tvBottomInfo.setOnClickListener {
             if (tflite != null && scalerParams != null && featureColumns.isNotEmpty()) {
                 binding.tvBitcoinPrice.text = getString(R.string.prediction_loading)
 
@@ -144,118 +159,48 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun fetchExchangeRate() {
-        val todayDate = KeximApiClient.getTodayDateString()
-        val apiKey = KeximApiClient.getApiKey()
-
-        if (apiKey == "YOUR_KEXIM_AUTH_KEY" || apiKey.isBlank()) { // 실제 키로 변경했는지 확인
-            Log.e("KeximExchangeRate", "API Key is not set in KeximApiClient.")
-            showError("환율 API 키가 설정되지 않았습니다.")
-            // API 키가 없어도 비트코인 가격은 USD로 표시되도록 fetchBitcoinPrice() 호출
-            fetchBitcoinPrice()
-            return
-        }
-
-        KeximApiClient.instance.getExchangeRates(apiKey, todayDate)
-            .enqueue(object : Callback<List<KeximExchangeRate>> {
-                override fun onResponse(
-                    call: Call<List<KeximExchangeRate>>,
-                    response: Response<List<KeximExchangeRate>>
-                ) {
-                    if (response.isSuccessful) {
-                        response.body()?.let { rates ->
-                            val usdRateInfo = rates.find { it.currencyUnit == "USD" }
-                            if (usdRateInfo != null && usdRateInfo.result == 1) {
-                                try {
-                                    usdToKrwRate = usdRateInfo.dealBaseRate.replace(",", "").toDouble()
-                                    Log.d("KeximExchangeRate", "USD to KRW rate (deal_bas_r): $usdToKrwRate")
-                                } catch (e: NumberFormatException) {
-                                    Log.e("KeximExchangeRate", "Error parsing deal_bas_r for USD", e)
-                                    showError("USD 환율 값 형식 오류")
-                                    usdToKrwRate = null // 파싱 실패 시 null로 설정
-                                }
-                            } else {
-                                val errorMsg = usdRateInfo?.let { "USD 환율 정보 Result: ${it.result} (1이 아니면 오류 또는 데이터 없음)" } ?: "USD 환율 정보를 찾을 수 없음 (응답 목록에 USD 없음 또는 result 코드 확인 필요)"
-                                Log.e("KeximExchangeRate", errorMsg)
-                                showError(errorMsg)
-                                usdToKrwRate = null
-                            }
-                        } ?: run {
-                            showError("환율 응답 데이터 없음")
-                            usdToKrwRate = null
-                        }
-                    } else {
-                        Log.e("KeximExchangeRate", "Failed to fetch KEXIM exchange rate: ${response.code()} ${response.message()}")
-                        showError("환율 정보 로드 실패: ${response.code()}")
-                        usdToKrwRate = null
-                    }
-                    // 환율 정보 로드 시도 후 (성공이든 실패든) 비트코인 가격 로드
-                    fetchBitcoinPrice()
-                }
-
-                override fun onFailure(call: Call<List<KeximExchangeRate>>, t: Throwable) {
-                    Log.e("KeximExchangeRate", "Error fetching KEXIM exchange rate", t)
-                    showError("환율 정보 네트워크 오류")
-                    usdToKrwRate = null
-                    // 환율 정보 로드 실패 후에도 비트코인 가격 로드
-                    fetchBitcoinPrice()
-                }
-            })
-    }
-
-
-    private fun updateCurrentPriceDisplayAfterPrediction() {
-        fetchBitcoinPrice()
-    }
-
     private fun setupChart() {
-        // ... (기존 코드와 동일)
-        lineChart.description.isEnabled = false
-        lineChart.setTouchEnabled(true)
-        lineChart.isDragEnabled = true
-        lineChart.setScaleEnabled(true)
-        lineChart.setPinchZoom(true)
-        lineChart.setDrawGridBackground(false)
+        // CombinedChart 설정
+        chart.description.isEnabled = false
+        chart.setTouchEnabled(true)
+        chart.isDragEnabled = true
+        chart.setScaleEnabled(true)
+        chart.setPinchZoom(true)
+        chart.setDrawGridBackground(false)
+        chart.drawOrder = arrayOf(CombinedChart.DrawOrder.CANDLE, CombinedChart.DrawOrder.LINE) // 캔들 먼저 그리고 라인 그리기
 
         // --- X축 설정 ---
-        val xAxis = lineChart.xAxis
+        val xAxis = chart.xAxis
         xAxis.position = XAxis.XAxisPosition.BOTTOM
-        xAxis.valueFormatter = DateAxisValueFormatter() // 기존 포맷터 유지
+        xAxis.valueFormatter = DateAxisValueFormatter()
         xAxis.granularity = 1f
-        xAxis.setDrawGridLines(false) // 그리드 라인 제거 (이전 설정 유지)
-
-        // X축 레이블 스타일 변경
-        xAxis.textColor = Color.WHITE // X축 텍스트 색상을
-        xAxis.textSize = 12f          // X축 텍스트 크기를
-        xAxis.setDrawAxisLine(true) // X축 선을 표시
-        xAxis.axisLineColor = Color.WHITE // X축 선 색상
-        xAxis.setLabelCount(5, false);
+        xAxis.setDrawGridLines(false)
+        xAxis.textColor = Color.WHITE
+        xAxis.textSize = 12f
+        xAxis.setDrawAxisLine(true)
+        xAxis.axisLineColor = Color.WHITE
+        xAxis.setLabelCount(5, true)
 
         // --- 왼쪽 Y축 설정 ---
-        val yAxisLeft = lineChart.axisLeft
-        yAxisLeft.valueFormatter = YAxisValueFormatter() // 기존 포맷터 유지
-        yAxisLeft.setDrawGridLines(false) // 그리드 라인 제거 (이전 설정 유지)
-
-        // Y축 레이블 스타일 변경
-        yAxisLeft.textColor = Color.WHITE // Y축 텍스트 색상을
-        yAxisLeft.textSize = 12f          // Y축 텍스트 크기를
-        yAxisLeft.setDrawAxisLine(true) // Y축 선을 표시
-        yAxisLeft.axisLineColor = Color.WHITE // Y축 선 색상
-
-        //yAxisLeft.granularity = ... // Y축 간격 조절
-        // yAxisLeft.axisMinimum = ... // Y축 최소값 설정
-
+        val yAxisLeft = chart.axisLeft
+        yAxisLeft.valueFormatter = YAxisValueFormatter()
+        yAxisLeft.setDrawGridLines(false)
+        yAxisLeft.textColor = Color.WHITE
+        yAxisLeft.textSize = 12f
+        yAxisLeft.setDrawAxisLine(true)
+        yAxisLeft.axisLineColor = Color.WHITE
 
         // --- 오른쪽 Y축 사용 안 함 ---
-        lineChart.axisRight.isEnabled = false
+        chart.axisRight.isEnabled = false
 
         // --- 범례(Legend) 설정 ---
-        val legend = lineChart.legend
-        legend.isEnabled = false
+        val legend = chart.legend
+        legend.isEnabled = true // 범례 표시 (SMA 구분을 위해)
+        legend.textColor = Color.WHITE
+        legend.textSize = 12f
     }
 
     private fun setupButtonListeners() {
-        // ... (기존 코드와 동일)
         val buttonsAndDays = listOf(
             binding.btn1Day to "1",
             binding.btn5Day to "5",
@@ -267,14 +212,14 @@ class MainActivity : AppCompatActivity() {
 
         buttonsAndDays.forEach { (button, daysValue) ->
             button.setOnClickListener {
+                currentDaysPeriod = daysValue // 현재 기간 저장
                 fetchHistoricalData(daysValue)
-                updateButtonSelectionUI(button) // UI 업데이트 함수 호출
+                updateButtonSelectionUI(button)
             }
         }
     }
 
     private fun updateButtonSelectionUI(selectedBtn: Button) {
-        // ... (기존 코드와 동일)
         val allButtons = listOf(
             binding.btn1Day, binding.btn5Day, binding.btn1Month,
             binding.btn6Months, binding.btn1Year, binding.btnAll
@@ -284,75 +229,59 @@ class MainActivity : AppCompatActivity() {
             val materialButton = button as? com.google.android.material.button.MaterialButton
 
             if (button == selectedBtn) {
-                // --- 선택된 버튼 스타일 ---
-                // 배경색: 연한 파란색 (colors.xml의 time_filter_button_selected_background 값)
                 val selectedBackgroundColor = ContextCompat.getColor(this, R.color.time_filter_button_selected_background)
                 if (materialButton != null) {
                     materialButton.backgroundTintList = ColorStateList.valueOf(selectedBackgroundColor)
                 } else {
                     button.setBackgroundColor(selectedBackgroundColor)
                 }
-
-                // 텍스트 색상: 검은색
-                button.setTextColor(Color.BLACK) // android.graphics.Color.BLACK 사용
-                // 또는 colors.xml에 <color name="black">#000000</color> 정의 후
-                // button.setTextColor(ContextCompat.getColor(this, R.color.black)) 사용 가능
-
-                // 텍스트 굵기: 굵게 (선택 사항, 필요 없다면 이 줄 삭제 또는 주석 처리)
+                button.setTextColor(Color.BLACK)
                 button.setTypeface(null, Typeface.BOLD)
 
             } else {
-                // --- 선택되지 않은 버튼 스타일 ---
-                // 배경색: 앱 기본 배경색 (colors.xml의 time_filter_button_default_background 값)
                 val defaultBackgroundColor = ContextCompat.getColor(this, R.color.time_filter_button_default_background)
                 if (materialButton != null) {
                     materialButton.backgroundTintList = ColorStateList.valueOf(defaultBackgroundColor)
                 } else {
                     button.setBackgroundColor(defaultBackgroundColor)
                 }
-
-                // 텍스트 색상: 흰색 (colors.xml의 text_primary_dark 값)
                 button.setTextColor(ContextCompat.getColor(this, R.color.text_primary_dark))
-
-                // 텍스트 굵기: 보통 (선택 사항, 필요 없다면 이 줄 삭제 또는 주석 처리)
                 button.setTypeface(null, Typeface.NORMAL)
             }
         }
     }
 
     private fun fetchHistoricalData(daysPeriod: String) {
-        // ... (기존 코드와 동일)
         val symbol = "BTCUSDT"
         var interval: String
         var limit: Int? = null
         var startTime: Long? = null
-        val endTime = System.currentTimeMillis() // 항상 현재 시간까지 데이터 요청
+        val endTime = System.currentTimeMillis()
 
         when (daysPeriod) {
-            "1" -> { // 1일: 5분봉, 288개 (24 * 12)
+            "1" -> {
                 interval = "5m"
                 startTime = endTime - (1 * 24 * 60 * 60 * 1000L)
-                // limit = 288 // startTime, endTime 사용 시 limit은 자동 계산되거나 최대 1000개
             }
-            "5" -> { // 5일: 30분봉, 240개 (5 * 24 * 2)
+            "5" -> {
                 interval = "30m"
                 startTime = endTime - (5 * 24 * 60 * 60 * 1000L)
             }
-            "30" -> { // 1개월(30일): 4시간봉, 180개 (30 * 6)
+            "30" -> {
                 interval = "4h"
                 startTime = endTime - (30 * 24 * 60 * 60 * 1000L)
             }
-            "180" -> { // 6개월(180일): 1일봉, 180개
+            "180" -> {
                 interval = "1d"
                 startTime = endTime - (180 * 24 * 60 * 60 * 1000L)
             }
-            "365" -> { // 1년(365일): 1일봉, 365개
+            "365" -> {
                 interval = "1d"
                 startTime = endTime - (365 * 24 * 60 * 60 * 1000L)
             }
-            "max" -> { // 최대: 1일봉, 1000개 (바이낸스 kline API 최대 limit)
+            "max" -> {
                 interval = "1d"
-                limit = 1000 // startTime 없이 가장 최근 1000일치 데이터
+                limit = 1000
             }
             else -> {
                 showError("알 수 없는 기간입니다: $daysPeriod")
@@ -363,14 +292,14 @@ class MainActivity : AppCompatActivity() {
         ApiClient.instance.getBinanceKlines(
             symbol = symbol,
             interval = interval,
-            startTime = startTime, // "max"가 아닐 때만 startTime 사용
-            endTime = endTime,     // "max"가 아닐 때도 endTime은 현재 시간으로 고정 가능
-            limit = if (daysPeriod == "max") limit else null // "max"일 때만 limit 사용, 나머지는 startTime/endTime으로 범위 지정
+            startTime = startTime,
+            endTime = endTime,
+            limit = if (daysPeriod == "max") limit else null
         ).enqueue(object : Callback<List<List<Any>>> {
             override fun onResponse(call: Call<List<List<Any>>>, response: Response<List<List<Any>>>) {
                 if (response.isSuccessful) {
                     response.body()?.let { klines ->
-                        updateLineChartWithBinanceData(klines) // 새로운 차트 업데이트 함수
+                        updateCombinedChartWithBinanceData(klines)
                     } ?: showError("과거 시세 데이터가 없습니다 (Binance).")
                 } else {
                     showError("과거 시세 API 응답 실패 (Binance): ${response.code()} ${response.message()}")
@@ -384,82 +313,92 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    private fun updateLineChartWithBinanceData(klines: List<List<Any>>) {
-        // ... (기존 코드와 동일)
-        val entries = ArrayList<Entry>()
+    private fun updateCombinedChartWithBinanceData(klines: List<List<Any>>) {
         if (klines.isEmpty()) {
-            lineChart.clear()
-            lineChart.data?.clearValues()
-            lineChart.notifyDataSetChanged()
-            lineChart.invalidate()
+            chart.clear()
+            chart.invalidate()
             Toast.makeText(this, "해당 기간의 데이터가 없습니다.", Toast.LENGTH_SHORT).show()
             return
         }
 
-        var minPriceKrw = Float.MAX_VALUE
-        var maxPriceKrw = Float.MIN_VALUE
+        val candleEntries = ArrayList<CandleEntry>()
+        val closePrices = mutableListOf<Double>()
+        val timestamps = mutableListOf<Long>()
 
         for (klineData in klines) {
             try {
                 val timestamp = (klineData[0] as Double).toLong()
-                val closePriceUsd = (klineData[4] as String).toFloat() // USD 가격
+                val openUsd = (klineData[1] as String).toFloat()
+                val highUsd = (klineData[2] as String).toFloat()
+                val lowUsd = (klineData[3] as String).toFloat()
+                val closeUsd = (klineData[4] as String).toFloat()
 
-                // 환율 정보가 있을 경우 KRW로 변환, 없으면 USD 그대로 사용 (또는 오류 처리)
-                val displayPrice = if (usdToKrwRate != null) {
-                    val priceKrw = (closePriceUsd * usdToKrwRate!!).toFloat()
-                    minPriceKrw = minOf(minPriceKrw, priceKrw)
-                    maxPriceKrw = maxOf(maxPriceKrw, priceKrw)
-                    priceKrw
-                } else {
-                    // 환율 정보 없을 시 차트 Y축을 어떻게 할지 결정 필요
-                    // 1. USD로 그대로 표시 (YAxisValueFormatter도 USD 유지)
-                    // 2. 차트 표시 안 함 또는 오류 메시지
-                    // 여기서는 USD로 그대로 표시한다고 가정 (YAxisValueFormatter는 아래에서 KRW용으로 변경할 것이므로,
-                    // 이 경우 YAxisValueFormatter도 동적으로 변경하거나, 환율 없을 시 차트 업데이트를 막는 것이 나을 수 있음)
-                    // 우선은 KRW 변환을 시도하고, 실패 시 USD를 넣도록 하되, 포맷터는 KRW 기준으로 가정합니다.
-                    // 더 나은 방법은 환율이 있을 때만 차트를 KRW로 그리고, 없을 땐 USD로 그리거나 안 그리는 것입니다.
-                    // 여기서는 환율이 있다고 가정하고 KRW로 변환합니다. 실제 사용 시 usdToKrwRate null 체크 강화 필요.
-                    (closePriceUsd * (usdToKrwRate ?: 1.0)).toFloat() // 임시로 환율 없으면 1.0 곱함 (실제로는 다른 처리 필요)
-                }
-                entries.add(Entry(timestamp.toFloat(), displayPrice))
+                val displayRate = usdToKrwRate ?: 1.0
+                val open = (openUsd * displayRate).toFloat()
+                val high = (highUsd * displayRate).toFloat()
+                val low = (lowUsd * displayRate).toFloat()
+                val close = (closeUsd * displayRate).toFloat()
+
+                candleEntries.add(CandleEntry(timestamp.toFloat(), high, low, open, close))
+                closePrices.add(close.toDouble())
+                timestamps.add(timestamp)
+
             } catch (e: Exception) {
                 Log.e("MainActivity", "Error parsing kline data for chart: $klineData", e)
             }
         }
 
-        entries.sortBy { it.x }
+        val candleDataSet = CandleDataSet(candleEntries, "BTC/KRW").apply {
+            increasingColor = ContextCompat.getColor(this@MainActivity, R.color.negative_red)
+            increasingPaintStyle = Paint.Style.FILL
+            decreasingColor = ContextCompat.getColor(this@MainActivity, R.color.chart_blue)
+            decreasingPaintStyle = Paint.Style.FILL
+            shadowColorSameAsCandle = true
+            shadowWidth = 0.7f
+            setDrawValues(false)
+        }
+        val candleData = CandleData(candleDataSet)
 
-        // Y축 최소/최대값 자동 조정을 위한 로직 (선택 사항, 데이터에 따라 보기 좋게)
-        if (entries.isNotEmpty() && usdToKrwRate != null) { // 환율이 있을 때만 KRW 기준으로 조정
-            // 약간의 여백을 줌
-            val padding = (maxPriceKrw - minPriceKrw) * 0.05f
-            lineChart.axisLeft.axisMinimum = if (minPriceKrw != Float.MAX_VALUE) minPriceKrw - padding else lineChart.axisLeft.axisMinimum
-            lineChart.axisLeft.axisMaximum = if (maxPriceKrw != Float.MIN_VALUE) maxPriceKrw + padding else lineChart.axisLeft.axisMaximum
+        val sma5 = calculateSMA(closePrices, 5)
+        val sma20 = calculateSMA(closePrices, 20)
+
+        val sma5Entries = ArrayList<Entry>()
+        val sma20Entries = ArrayList<Entry>()
+
+        for (i in sma5.indices) {
+            if (!sma5[i].isNaN()) {
+                sma5Entries.add(Entry(timestamps[i].toFloat(), sma5[i].toFloat()))
+            }
+            if (!sma20[i].isNaN()) {
+                sma20Entries.add(Entry(timestamps[i].toFloat(), sma20[i].toFloat()))
+            }
         }
 
-
-        val dataSet: LineDataSet
-        if (lineChart.data != null && lineChart.data.dataSetCount > 0) {
-            dataSet = lineChart.data.getDataSetByIndex(0) as LineDataSet
-            dataSet.values = entries
-            dataSet.label = if (usdToKrwRate != null) "Bitcoin Price (KRW)" else "Bitcoin Price (USD)" // 레이블 변경
-            lineChart.data.notifyDataChanged()
-            lineChart.notifyDataSetChanged()
-        } else {
-            dataSet = LineDataSet(entries, if (usdToKrwRate != null) "Bitcoin Price (KRW)" else "Bitcoin Price (USD)")
-            dataSet.color = ContextCompat.getColor(this, R.color.positive_green)
-            dataSet.valueTextColor = ContextCompat.getColor(this, R.color.text_primary_dark)
-            dataSet.setDrawCircles(false)
-            dataSet.setDrawValues(false)
-            dataSet.lineWidth = 2f
-            val lineData = LineData(dataSet)
-            lineChart.data = lineData
+        val sma5DataSet = LineDataSet(sma5Entries, "SMA 5").apply {
+            color = ContextCompat.getColor(this@MainActivity, R.color.sma_5_color)
+            lineWidth = 1.5f
+            setDrawCircles(false)
+            setDrawValues(false)
         }
-        lineChart.invalidate()
+
+        val sma20DataSet = LineDataSet(sma20Entries, "SMA 20").apply {
+            color = ContextCompat.getColor(this@MainActivity, R.color.sma_20_color)
+            lineWidth = 1.5f
+            setDrawCircles(false)
+            setDrawValues(false)
+        }
+
+        val lineData = LineData(sma5DataSet, sma20DataSet)
+
+        val combinedData = CombinedData()
+        combinedData.setData(candleData)
+        combinedData.setData(lineData)
+
+        chart.data = combinedData
+        chart.invalidate()
     }
 
     inner class DateAxisValueFormatter : ValueFormatter() {
-        // ... (기존 코드와 동일)
         private val sdf = SimpleDateFormat("MM/dd", Locale.getDefault())
         override fun getAxisLabel(value: Float, axis: com.github.mikephil.charting.components.AxisBase?): String {
             return try {
@@ -471,15 +410,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     inner class YAxisValueFormatter : ValueFormatter() {
-        // KRW용 포맷터 (환율 정보가 있을 때 사용)
         private val krwPriceFormat = DecimalFormat("₩#,##0")
-        // USD용 포맷터 (환율 정보가 없을 때의 대비용 또는 기본값)
         private val usdPriceFormat = DecimalFormat("$#,##0")
 
         override fun getAxisLabel(value: Float, axis: com.github.mikephil.charting.components.AxisBase?): String {
-            return if (usdToKrwRate != null) { // 환율 정보가 있으면 KRW로 포맷
+            return if (usdToKrwRate != null) {
                 krwPriceFormat.format(value)
-            } else { // 없으면 USD로 포맷 (또는 다른 기본값)
+            } else {
                 usdPriceFormat.format(value)
             }
         }
@@ -503,7 +440,7 @@ class MainActivity : AppCompatActivity() {
             override fun onResponse(call: Call<Binance24hrTickerResponse>, response: Response<Binance24hrTickerResponse>) {
                 if (response.isSuccessful) {
                     response.body()?.let {
-                        updateUIWithBinance24hrData(it) // 수정된 함수 호출
+                        updateUIWithBinance24hrData(it)
                     } ?: showError("현재 가격/변동률 데이터 파싱 오류 (Binance)")
                 } else {
                     showError("현재 가격/변동률 API 응답 실패 (Binance): ${response.code()} ${response.message()}")
@@ -517,47 +454,36 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    // updateUIWithBinance24hrData 함수 수정 (환율 적용)
     private fun updateUIWithBinance24hrData(data: Binance24hrTickerResponse) {
         try {
             val currentPriceUsd = data.lastPrice.toDouble()
             val absoluteChangeUsd = data.priceChange.toDouble()
             val priceChangePercent = data.priceChangePercent.toDouble()
 
-            // KRW 표시를 위한 포맷 (소수점 없음, 쉼표, 원화 기호)
             val krwPriceFormat = DecimalFormat("'₩',##0")
             val krwChangeFormat = DecimalFormat("'₩',##0")
+            val usdPriceInParenthesesFormat = DecimalFormat("'$',##0")
+            val usdPriceDefaultFormat = DecimalFormat("'$',##0.00")
 
-            // USD 단독 표시 또는 괄호 안 USD 표시(정수)를 위한 포맷
-            val usdPriceInParenthesesFormat = DecimalFormat("'$',##0") // 괄호 안 USD는 소수점 없이
-            val usdPriceDefaultFormat = DecimalFormat("'$',##0.00") // 환율 없을 때 기본 USD 포맷
-
-            var displayChange: String // 변동률 표시는 Spannable 없이 String으로 처리
+            var displayChange: String
 
             if (usdToKrwRate != null) {
                 val currentPriceKrw = currentPriceUsd * usdToKrwRate!!
                 val absoluteChangeKrw = absoluteChangeUsd * usdToKrwRate!!
 
-                // SpannableString으로 가격 표시 스타일링
                 val krwStr = krwPriceFormat.format(currentPriceKrw)
-                val usdStrInParentheses = " (${usdPriceInParenthesesFormat.format(currentPriceUsd)})" // 괄호, 공백 포함
+                val usdStrInParentheses = " (${usdPriceInParenthesesFormat.format(currentPriceUsd)})"
 
                 val spannablePrice = SpannableString(krwStr + usdStrInParentheses)
-
-                // USD 부분 (괄호 포함) 스타일 적용: 작은 글꼴, 다른 색상
                 val usdPartStartIndex = krwStr.length
                 val usdPartEndIndex = krwStr.length + usdStrInParentheses.length
 
-                // 글꼴 크기 작게 (예: 기본 크기의 70%)
                 spannablePrice.setSpan(
                     RelativeSizeSpan(0.7f),
                     usdPartStartIndex,
                     usdPartEndIndex,
                     Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
                 )
-
-                // 글꼴 색상 변경 (예: text_secondary_dark 색상 사용)
-                // colors.xml에 정의된 색상을 사용합니다. 예: <color name="text_secondary_dark">#B3FFFFFF</color>
                 spannablePrice.setSpan(
                     ForegroundColorSpan(ContextCompat.getColor(this, R.color.text_secondary_dark)),
                     usdPartStartIndex,
@@ -566,28 +492,23 @@ class MainActivity : AppCompatActivity() {
                 )
                 binding.tvBitcoinPrice.text = spannablePrice
 
-                // 변동률 표시 (원화 기준)
                 val formattedChangeKrw = krwChangeFormat.format(absoluteChangeKrw)
                 val percentageChangeFormat = DecimalFormat("+#0.00'%';-#0.00'%'")
                 val formattedPercentageChange = percentageChangeFormat.format(priceChangePercent)
                 displayChange = String.format(Locale.getDefault(), "%s (%s)", formattedChangeKrw, formattedPercentageChange)
 
             } else {
-                // 환율 정보 없을 시: USD만 기본 포맷으로 표시
                 binding.tvBitcoinPrice.text = usdPriceDefaultFormat.format(currentPriceUsd)
 
-                // 변동률 표시 (USD 기준)
-                val absoluteChangeFormat = DecimalFormat("+#,##0.0;-#,##0.0") // USD 변동폭 포맷
+                val absoluteChangeFormat = DecimalFormat("+#,##0.0;-#,##0.0")
                 val percentageChangeFormat = DecimalFormat("+#0.00'%';-#0.00'%'")
                 val formattedAbsoluteChangeUsd = absoluteChangeFormat.format(absoluteChangeUsd)
                 val formattedPercentageChange = percentageChangeFormat.format(priceChangePercent)
                 displayChange = String.format(Locale.getDefault(), "%s (%s)", formattedAbsoluteChangeUsd, formattedPercentageChange)
             }
 
-            // 변동률 텍스트 설정
             binding.tvPriceChange.text = displayChange
 
-            // 변동률에 따른 텍스트 색상 변경
             if (priceChangePercent >= 0) {
                 binding.tvPriceChange.setTextColor(ContextCompat.getColor(this, R.color.positive_green))
             } else {
@@ -597,7 +518,7 @@ class MainActivity : AppCompatActivity() {
         } catch (e: NumberFormatException) {
             showError("가격/변동률 데이터 형식 오류 (Binance)")
             Log.e("MainActivity", "Error parsing Binance 24hr ticker data: $data", e)
-            binding.tvBitcoinPrice.text = "가격 오류" // 환율 로드 실패 시 기본 가격 표시도 오류일 수 있으므로 간결하게
+            binding.tvBitcoinPrice.text = "가격 오류"
             binding.tvPriceChange.text = "변동률 오류"
         } catch (e: Exception) {
             showError("UI 업데이트 중 알 수 없는 오류 발생")
@@ -609,7 +530,6 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun showError(message: String) {
-        // ... (기존 코드와 동일)
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
         if (binding.tvBitcoinPrice.text == getString(R.string.loading_price) || binding.tvBitcoinPrice.text.contains("오류")) {
             binding.tvBitcoinPrice.text = "가격 로드 실패"
@@ -621,7 +541,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadModelFile(): MappedByteBuffer {
-        // ... (기존 코드와 동일)
         val fileDescriptor = assets.openFd("btc_price_predictor_model.tflite")
         val inputStream = FileInputStream(fileDescriptor.fileDescriptor)
         val fileChannel = inputStream.channel
@@ -631,7 +550,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadFeatureColumns(): List<String> {
-        // ... (기존 코드와 동일)
         val inputStream = assets.open("feature_columns.json")
         val reader = BufferedReader(InputStreamReader(inputStream))
         val gson = Gson()
@@ -639,7 +557,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadScalerParams(): ScalerParams? {
-        // ... (기존 코드와 동일)
         return try {
             val inputStream = assets.open("scaler_params.json")
             val reader = BufferedReader(InputStreamReader(inputStream))
@@ -651,7 +568,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // fetchDataForPrediction 콜백 시그니처 변경 (String -> Double?)
     private fun fetchDataForPrediction(onPredictionReady: (Double?) -> Unit) {
         val symbol = "BTCUSDT"
         val interval = "1d"
@@ -669,30 +585,29 @@ class MainActivity : AppCompatActivity() {
                             processDataForPrediction(klines, onPredictionReady)
                         } else {
                             showError("예측을 위한 충분한 데이터가 없습니다. (가져온 데이터 수: ${klines.size})")
-                            onPredictionReady(null) // 실패 시 null 전달
+                            onPredictionReady(null)
                         }
                     } ?: run {
                         showError("예측용 데이터가 없습니다 (Binance).")
-                        onPredictionReady(null) // 실패 시 null 전달
+                        onPredictionReady(null)
                     }
                 } else {
                     showError("예측용 API 응답 실패 (Binance): ${response.code()} ${response.message()}")
-                    onPredictionReady(null) // 실패 시 null 전달
+                    onPredictionReady(null)
                 }
             }
 
             override fun onFailure(call: Call<List<List<Any>>>, t: Throwable) {
                 showError("예측용 네트워크 오류 (Binance): ${t.message}")
-                onPredictionReady(null) // 실패 시 null 전달
+                onPredictionReady(null)
             }
         })
     }
 
-    // processDataForPrediction 콜백 시그니처 변경 (String -> Double?) 및 반환값 수정
     private fun processDataForPrediction(klines: List<List<Any>>, onPredictionReady: (Double?) -> Unit) {
         if (scalerParams == null || featureColumns.isEmpty() || tflite == null) {
             showError("스케일러, 피처 정보 또는 모델이 준비되지 않았습니다.")
-            onPredictionReady(null) // 실패 시 null 전달
+            onPredictionReady(null)
             return
         }
 
@@ -793,7 +708,7 @@ class MainActivity : AppCompatActivity() {
             for (j in featureColumns.indices) {
                 val featureName = featureColumns[j]
                 val rawValue = currentDayFeatures[featureName]
-                    ?: run { // 해당 키가 없을 경우의 처리
+                    ?: run {
                         Log.e("PredictionLogic", "Feature $featureName not found in prepared data for day $i")
                         onPredictionReady(null)
                         return
@@ -837,20 +752,19 @@ class MainActivity : AppCompatActivity() {
         val targetMin = scalerParams!!.target_close_data_min
         val targetMax = scalerParams!!.target_close_data_max
         val targetRange = targetMax - targetMin
-        val predictedPriceUsd = if (targetRange != 0.0) { // USD 단위 예측값
+        val predictedPriceUsd = if (targetRange != 0.0) {
             scaledPrediction * targetRange + targetMin
         } else {
             targetMin
         }
         Log.d("PredictionLogic", "Step 7: Prediction inverse-scaled. Predicted Price USD: $predictedPriceUsd")
 
-        onPredictionReady(predictedPriceUsd) // Double? 타입의 USD 예측값 전달
+        onPredictionReady(predictedPriceUsd)
     }
 
 
     fun calculateSMA(data: List<Double>, window: Int): List<Double> {
-        // ... (기존 코드와 동일)
-        val result = MutableList(data.size) { Double.NaN } // 초기값을 NaN으로 설정
+        val result = MutableList(data.size) { Double.NaN }
         if (window <= 0 || data.isEmpty()) return result
 
         for (i in data.indices) {
@@ -864,7 +778,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun calculateEMA(data: List<Double>, window: Int): List<Double> {
-        // ... (이전 답변에서 수정된 로직 적용)
         val result = MutableList(data.size) { Double.NaN }
         if (window <= 0 || data.isEmpty()) return result
 
@@ -877,7 +790,6 @@ class MainActivity : AppCompatActivity() {
                 result[i] = data.subList(0, window).average()
             } else {
                 val currentPrice = data[i]
-                // result[i-1]은 이전 단계에서 값이 할당되었으므로 NaN이 아님 (또는 평균으로 채워짐)
                 result[i] = (currentPrice - result[i-1]) * multiplier + result[i-1]
             }
         }
@@ -887,12 +799,10 @@ class MainActivity : AppCompatActivity() {
 
 
     fun calculateATR(highs: List<Double>, lows: List<Double>, closes: List<Double>, window: Int): List<Double> {
-        // ... (기존 코드와 동일)
         val trList = MutableList(highs.size) { 0.0 }
         if (highs.isEmpty()) return MutableList(highs.size) { Double.NaN }
 
-        // Calculate True Range (TR)
-        trList[0] = highs[0] - lows[0] // First TR
+        trList[0] = highs[0] - lows[0]
         for (i in 1 until highs.size) {
             val hl = highs[i] - lows[i]
             val hpc = abs(highs[i] - closes[i-1])
@@ -900,15 +810,11 @@ class MainActivity : AppCompatActivity() {
             trList[i] = maxOf(hl, hpc, lpc)
         }
 
-        // Calculate ATR (smoothed average of TR)
-        // Python `ta` 라이브러리의 ATR은 Wilder's smoothing을 사용 (EMA와 유사한 방식)
         val atrList = MutableList(highs.size) { Double.NaN }
-        if (trList.size < window) return atrList // 데이터 부족
+        if (trList.size < window) return atrList
 
-        // 첫 ATR은 window 기간 동안의 TR의 단순 평균
         atrList[window - 1] = trList.subList(0, window).average()
 
-        // 이후 ATR은 Wilder's smoothing 적용
         for (i in window until highs.size) {
             atrList[i] = (atrList[i-1] * (window - 1) + trList[i]) / window
         }
@@ -918,14 +824,12 @@ class MainActivity : AppCompatActivity() {
 
 
     fun calculateRSI(data: List<Double>, window: Int): List<Double> {
-        // ... (기존 코드와 동일)
         val result = MutableList(data.size) { Double.NaN }
-        if (window <= 0 || data.size <= window) return result // RSI는 최소 window+1개의 데이터 필요
+        if (window <= 0 || data.size <= window) return result
 
         val gains = mutableListOf<Double>()
         val losses = mutableListOf<Double>()
 
-        // 첫 window 기간 동안의 평균 상승폭과 하락폭 계산
         for (i in 1..window) {
             val difference = data[i] - data[i-1]
             if (difference > 0) {
@@ -937,8 +841,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        if (gains.isEmpty() && losses.isEmpty() && window > 0) { // 모든 가격이 동일한 극단적 경우
-            for(i in window until data.size) result[i] = 50.0 // 중립 RSI
+        if (gains.isEmpty() && losses.isEmpty() && window > 0) {
+            for(i in window until data.size) result[i] = 50.0
             return result
         }
 
@@ -947,14 +851,12 @@ class MainActivity : AppCompatActivity() {
         var avgLoss = if (losses.isNotEmpty()) losses.average() else 0.0
 
         if (avgLoss == 0.0) {
-            result[window] = 100.0 // 계속 상승한 경우
+            result[window] = 100.0
         } else {
             val rs = avgGain / avgLoss
             result[window] = 100.0 - (100.0 / (1.0 + rs))
         }
 
-
-        // 이후 RSI 값 계산 (지수 이동 평균 사용과 유사)
         for (i in window + 1 until data.size) {
             val difference = data[i] - data[i-1]
             val currentGain = if (difference > 0) difference else 0.0
@@ -972,5 +874,69 @@ class MainActivity : AppCompatActivity() {
         }
         Log.d("TechIndicator", "RSI($window) calculated. Example last value: ${result.lastOrNull()}")
         return result
+    }
+
+    // 이전에 있던 fetchExchangeRate, updateCurrentPriceDisplayAfterPrediction 함수는 여기에 포함되어 있지 않지만,
+    // 실제 코드에서는 그대로 존재해야 합니다.
+    private fun fetchExchangeRate() {
+        val todayDate = KeximApiClient.getTodayDateString()
+        val apiKey = KeximApiClient.getApiKey()
+
+        if (apiKey == "YOUR_KEXIM_AUTH_KEY" || apiKey.isBlank()) {
+            Log.e("KeximExchangeRate", "API Key is not set in KeximApiClient.")
+            showError("환율 API 키가 설정되지 않았습니다.")
+            fetchBitcoinPrice()
+            return
+        }
+
+        KeximApiClient.instance.getExchangeRates(apiKey, todayDate)
+            .enqueue(object : Callback<List<KeximExchangeRate>> {
+                override fun onResponse(
+                    call: Call<List<KeximExchangeRate>>,
+                    response: Response<List<KeximExchangeRate>>
+                ) {
+                    if (response.isSuccessful) {
+                        response.body()?.let { rates ->
+                            val usdRateInfo = rates.find { it.currencyUnit == "USD" }
+                            if (usdRateInfo != null && usdRateInfo.result == 1) {
+                                try {
+                                    usdToKrwRate = usdRateInfo.dealBaseRate.replace(",", "").toDouble()
+                                    Log.d("KeximExchangeRate", "USD to KRW rate (deal_bas_r): $usdToKrwRate")
+                                } catch (e: NumberFormatException) {
+                                    Log.e("KeximExchangeRate", "Error parsing deal_bas_r for USD", e)
+                                    showError("USD 환율 값 형식 오류")
+                                    usdToKrwRate = null
+                                }
+                            } else {
+                                val errorMsg = usdRateInfo?.let { "USD 환율 정보 Result: ${it.result} (1이 아니면 오류 또는 데이터 없음)" } ?: "USD 환율 정보를 찾을 수 없음 (응답 목록에 USD 없음 또는 result 코드 확인 필요)"
+                                Log.e("KeximExchangeRate", errorMsg)
+                                showError(errorMsg)
+                                usdToKrwRate = null
+                            }
+                        } ?: run {
+                            showError("환율 응답 데이터 없음")
+                            usdToKrwRate = null
+                        }
+                    } else {
+                        Log.e("KeximExchangeRate", "Failed to fetch KEXIM exchange rate: ${response.code()} ${response.message()}")
+                        showError("환율 정보 로드 실패: ${response.code()}")
+                        usdToKrwRate = null
+                    }
+                    fetchBitcoinPrice()
+                    fetchHistoricalData(currentDaysPeriod)
+                }
+
+                override fun onFailure(call: Call<List<KeximExchangeRate>>, t: Throwable) {
+                    Log.e("KeximExchangeRate", "Error fetching KEXIM exchange rate", t)
+                    showError("환율 정보 네트워크 오류")
+                    usdToKrwRate = null
+                    fetchBitcoinPrice()
+                    fetchHistoricalData(currentDaysPeriod)
+                }
+            })
+    }
+
+    private fun updateCurrentPriceDisplayAfterPrediction() {
+        fetchBitcoinPrice()
     }
 }
