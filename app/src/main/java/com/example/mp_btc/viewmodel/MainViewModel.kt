@@ -57,6 +57,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun fetchInitialData() {
         viewModelScope.launch {
+            fetchCurrentPrice()
             repository.getExchangeRate()
                 .onSuccess { rates ->
                     if (rates.isNotEmpty() && rates.first().result == 1) { // result 코드 확인

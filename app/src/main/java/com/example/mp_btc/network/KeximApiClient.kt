@@ -10,7 +10,7 @@ object KeximApiClient {
     private const val BASE_URL = "https://www.koreaexim.go.kr/"
 
 
-    private const val AUTH_KEY = "Sn9Qz2sTJahXBfJMpkPd2wZbacciUjhl"
+    private const val AUTH_KEY = "myAppKey"
 
     val instance: KeximApiService by lazy {
         val retrofit = Retrofit.Builder()
