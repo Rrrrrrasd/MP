@@ -21,6 +21,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val viewModel: MainViewModel by viewModels()
     private lateinit var chartManager: ChartManager
+    private var currentSelectedPeriod: String = "1"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,8 +51,26 @@ class MainActivity : AppCompatActivity() {
         buttons.forEach { (button, period) ->
             button.setOnClickListener {
                 updateButtonSelectionUI(button)
+                currentSelectedPeriod = period
                 viewModel.fetchHistoricalData(period)
             }
+        }
+        binding.btnRefresh.setOnClickListener {
+            viewModel.fetchInitialData()
+            // 현재 선택된 기간의 차트 데이터도 다시 불러옵니다.
+            val selectedButton = listOf(binding.btn1Day, binding.btn5Day, binding.btn1Month, binding.btn6Months, binding.btn1Year, binding.btnAll)
+                .firstOrNull { (it as? com.google.android.material.button.MaterialButton)?.backgroundTintList?.defaultColor == ContextCompat.getColor(this, R.color.time_filter_button_selected_background) }
+
+            val period = when (selectedButton?.id) {
+                R.id.btn1Day -> "1"
+                R.id.btn5Day -> "5"
+                R.id.btn1Month -> "30"
+                R.id.btn6Months -> "180"
+                R.id.btn1Year -> "365"
+                R.id.btnAll -> "max"
+                else -> "1" // 기본값
+            }
+            viewModel.fetchHistoricalData(period)
         }
 
         binding.tvBottomPredict.setOnClickListener {
@@ -67,9 +86,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         // ✅ [수정됨] chartData를 관찰할 때, 환율 정보를 viewModel.usdToKrwRate에서 직접 가져옵니다.
-        viewModel.chartData.observe(this) { data ->
+        viewModel.chartData.observe(this) { chartUpdateData ->
             val currentRate = viewModel.usdToKrwRate.value
-            chartManager.updateChart(data, currentRate)
+            // chartManager에 전체 데이터를 전달
+            chartManager.updateChartWithMA(chartUpdateData, currentRate, currentSelectedPeriod)
         }
 
         viewModel.toastMessage.observe(this) { message ->

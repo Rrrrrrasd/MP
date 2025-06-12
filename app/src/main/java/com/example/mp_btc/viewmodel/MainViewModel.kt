@@ -29,6 +29,13 @@ data class PredictionUiState(
     val predictedUsdPrice: Double,
     val displayString: String
 )
+// 차트 업데이트를 위한 데이터를 묶는 클래스
+data class ChartUpdateData(
+    val klines: List<List<Any>>,
+    val sma5: List<Double>,
+    val sma20: List<Double>,
+    val sma60: List<Double>
+)
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -41,8 +48,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _priceUiState = MutableLiveData<PriceUiState>()
     val priceUiState: LiveData<PriceUiState> = _priceUiState
 
-    private val _chartData = MutableLiveData<List<List<Any>>>()
-    val chartData: LiveData<List<List<Any>>> = _chartData
+    private val _chartData = MutableLiveData<ChartUpdateData>()
+    val chartData: LiveData<ChartUpdateData> = _chartData
 
     // 예측 결과를 UI State 객체로 관리
     private val _predictionUiState = MutableLiveData<PredictionUiState?>()
@@ -55,8 +62,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         fetchInitialData()
     }
 
-    private fun fetchInitialData() {
+    fun fetchInitialData() {
         viewModelScope.launch {
+            _toastMessage.value = "데이터를 새로고침합니다..."
             fetchCurrentPrice()
             repository.getExchangeRate()
                 .onSuccess { rates ->
@@ -92,18 +100,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun fetchHistoricalData(daysPeriod: String) {
         viewModelScope.launch {
+            // ✨ [수정] 60일 이평선을 계산하기 위해 max, 1년, 6개월은 더 많은 데이터 요청
             val (interval, startTime, limit) = when (daysPeriod) {
                 "1" -> Triple("5m", System.currentTimeMillis() - (1 * 24 * 60 * 60 * 1000L), null)
                 "5" -> Triple("30m", System.currentTimeMillis() - (5 * 24 * 60 * 60 * 1000L), null)
                 "30" -> Triple("4h", System.currentTimeMillis() - (30 * 24 * 60 * 60 * 1000L), null)
-                "180" -> Triple("1d", System.currentTimeMillis() - (180 * 24 * 60 * 60 * 1000L), null)
-                "365" -> Triple("1d", System.currentTimeMillis() - (365 * 24 * 60 * 60 * 1000L), null)
+                "180" -> Triple("1d", System.currentTimeMillis() - (180 * 24 * 60 * 60 * 1000L), 240) // 180 + 60
+                "365" -> Triple("1d", System.currentTimeMillis() - (365 * 24 * 60 * 60 * 1000L), 425) // 365 + 60
                 "max" -> Triple("1d", null, 1000)
                 else -> Triple("1d", null, null)
             }
 
             repository.getHistoricalData(interval, startTime, limit)
-                .onSuccess { klines -> _chartData.value = klines }
+                .onSuccess { klines ->
+                    // ✨ [추가] 이동평균선 계산 로직
+                    if (klines.isNotEmpty()) {
+                        val closePrices = klines.map { (it[4] as String).toDouble() }
+                        // 주의: TechnicalIndicatorCalculator는 내부적으로 충분한 데이터가 없으면 NaN을 반환합니다.
+                        val sma5 = com.example.mp_btc.domain.TechnicalIndicatorCalculator.calculateSMA(closePrices, 5)
+                        val sma20 = com.example.mp_btc.domain.TechnicalIndicatorCalculator.calculateSMA(closePrices, 20)
+                        val sma60 = com.example.mp_btc.domain.TechnicalIndicatorCalculator.calculateSMA(closePrices, 60)
+
+                        _chartData.value = ChartUpdateData(klines, sma5, sma20, sma60)
+                    }
+                }
                 .onFailure { _toastMessage.value = "과거 시세 로드 실패: ${it.message}" }
         }
     }
@@ -172,4 +192,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         return PriceUiState(priceText, changeText, changeColor)
     }
+
+
 }
