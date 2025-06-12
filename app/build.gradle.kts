@@ -55,6 +55,10 @@ dependencies {
     implementation(libs.androidx.material3)
 
 
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.1")
+    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.9.1")
+    implementation("androidx.activity:activity-ktx:1.10.1")
+
     implementation("org.tensorflow:tensorflow-lite:2.10.0")
     implementation("org.tensorflow:tensorflow-lite-support:0.4.2")
     implementation("org.tensorflow:tensorflow-lite-select-tf-ops:2.10.0")
