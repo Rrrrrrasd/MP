@@ -16,7 +16,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url = uri("https://jitpack.io") } //MPAndroidChart때문에 필요하다함
+        maven { url = uri("https://jitpack.io") }  // MPAndroidChart 라이브러리를 가져오기 위한 저장소
     }
 }
 

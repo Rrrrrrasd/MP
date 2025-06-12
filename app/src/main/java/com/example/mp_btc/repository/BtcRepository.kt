@@ -8,12 +8,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * 앱의 데이터 소스를 관리하는 Repository.
- * 네트워크 API 호출을 담당하며, 추후 DB 캐싱 로직 추가 가능.
+ * 네트워크 API 호출 등 앱의 데이터 소스를 관리하는 Repository.
  */
 class BtcRepository {
 
-    // 네트워크 통신은 코루틴의 IO 컨텍스트에서 수행
+    /**
+     * 바이낸스에서 24시간 Ticker 정보를 비동기적으로 가져옵니다.
+     * @return API 호출 결과를 담은 Result 객체.
+     */
     suspend fun get24hrTicker(): Result<Binance24hrTickerResponse> = withContext(Dispatchers.IO) {
         try {
             val response = ApiClient.instance.getBinance24hrTicker().execute()
@@ -27,6 +29,13 @@ class BtcRepository {
         }
     }
 
+    /**
+     * 바이낸스에서 과거 시세(K-line) 데이터를 비동기적으로 가져옵니다.
+     * @param interval 데이터 간격 (e.g., "1d").
+     * @param startTime 조회 시작 타임스탬프.
+     * @param limit 가져올 데이터 개수.
+     * @return API 호출 결과를 담은 Result 객체.
+     */
     suspend fun getHistoricalData(interval: String, startTime: Long?, limit: Int?): Result<List<List<Any>>> = withContext(Dispatchers.IO) {
         try {
             val endTime = System.currentTimeMillis()
@@ -41,6 +50,10 @@ class BtcRepository {
         }
     }
 
+    /**
+     * 한국수출입은행에서 현재 환율 정보를 비동기적으로 가져옵니다.
+     * @return API 호출 결과를 담은 Result 객체.
+     */
     suspend fun getExchangeRate(): Result<List<KeximExchangeRate>> = withContext(Dispatchers.IO) {
         try {
             val apiKey = KeximApiClient.getApiKey()

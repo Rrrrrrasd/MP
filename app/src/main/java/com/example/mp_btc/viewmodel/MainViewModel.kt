@@ -17,19 +17,17 @@ import kotlinx.coroutines.launch
 import java.text.DecimalFormat
 import java.util.Locale
 
-// UI 상태를 나타내는 데이터 클래스
 data class PriceUiState(
     val priceText: CharSequence,
     val changeText: String,
-    val changeTextColorRes: Int // 리소스 ID를 전달하여 Context 의존성 제거
+    val changeTextColorRes: Int
 )
 
-// 예측 결과를 담을 데이터 클래스 (표시될 최종 문자열 포함)
 data class PredictionUiState(
     val predictedUsdPrice: Double,
     val displayString: String
 )
-// 차트 업데이트를 위한 데이터를 묶는 클래스
+
 data class ChartUpdateData(
     val klines: List<List<Any>>,
     val sma5: List<Double>,
@@ -43,7 +41,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val predictor = PricePredictor(application.applicationContext)
 
     private val _usdToKrwRate = MutableLiveData<Double?>(null)
-    val usdToKrwRate: LiveData<Double?> = _usdToKrwRate // ChartManager에서 사용할 수 있도록 public으로 유지
+    val usdToKrwRate: LiveData<Double?> = _usdToKrwRate
 
     private val _priceUiState = MutableLiveData<PriceUiState>()
     val priceUiState: LiveData<PriceUiState> = _priceUiState
@@ -51,28 +49,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _chartData = MutableLiveData<ChartUpdateData>()
     val chartData: LiveData<ChartUpdateData> = _chartData
 
-    // 예측 결과를 UI State 객체로 관리
     private val _predictionUiState = MutableLiveData<PredictionUiState?>()
     val predictionUiState: LiveData<PredictionUiState?> = _predictionUiState
 
     private val _toastMessage = MutableLiveData<String>()
     val toastMessage: LiveData<String> = _toastMessage
 
+    /**
+     * ViewModel 초기화 시, 현재 가격과 환율 정보를 가져옵니다.
+     */
     init {
         fetchInitialData()
     }
 
+    /**
+     * 현재 가격과 환율 정보를 포함한 초기 데이터를 로드합니다. (새로고침 시 사용)
+     */
     fun fetchInitialData() {
         viewModelScope.launch {
             _toastMessage.value = "데이터를 새로고침합니다..."
             fetchCurrentPrice()
             repository.getExchangeRate()
                 .onSuccess { rates ->
-                    if (rates.isNotEmpty() && rates.first().result == 1) { // result 코드 확인
+                    if (rates.isNotEmpty() && rates.first().result == 1) {
                         _usdToKrwRate.value = rates.find { it.currencyUnit == "USD" }
                             ?.dealBaseRate?.replace(",", "")?.toDoubleOrNull()
                     } else {
-                        // API가 오류 코드를 반환한 경우 (예: 인증 실패, 데이터 없음 등)
                         val reason = when (rates.firstOrNull()?.result) {
                             2 -> "DATA 코드 오류"
                             3 -> "인증키 오류"
@@ -88,6 +90,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * 현재 비트코인 가격 정보를 API로부터 가져와 UI 상태를 업데이트합니다.
+     */
     private fun fetchCurrentPrice() {
         viewModelScope.launch {
             repository.get24hrTicker()
@@ -98,25 +103,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * 선택된 기간에 맞는 과거 시세 데이터를 API로부터 가져오고,
+     * 이동평균선을 계산하여 차트 데이터를 업데이트합니다.
+     * @param daysPeriod 사용자가 선택한 기간 (e.g., "1", "30", "max").
+     */
     fun fetchHistoricalData(daysPeriod: String) {
         viewModelScope.launch {
-            // ✨ [수정] 60일 이평선을 계산하기 위해 max, 1년, 6개월은 더 많은 데이터 요청
             val (interval, startTime, limit) = when (daysPeriod) {
                 "1" -> Triple("5m", System.currentTimeMillis() - (1 * 24 * 60 * 60 * 1000L), null)
                 "5" -> Triple("30m", System.currentTimeMillis() - (5 * 24 * 60 * 60 * 1000L), null)
                 "30" -> Triple("4h", System.currentTimeMillis() - (30 * 24 * 60 * 60 * 1000L), null)
-                "180" -> Triple("1d", System.currentTimeMillis() - (180 * 24 * 60 * 60 * 1000L), 240) // 180 + 60
-                "365" -> Triple("1d", System.currentTimeMillis() - (365 * 24 * 60 * 60 * 1000L), 425) // 365 + 60
+                "180" -> Triple("1d", System.currentTimeMillis() - (180 * 24 * 60 * 60 * 1000L), 240)
+                "365" -> Triple("1d", System.currentTimeMillis() - (365 * 24 * 60 * 60 * 1000L), 425)
                 "max" -> Triple("1d", null, 1000)
                 else -> Triple("1d", null, null)
             }
 
             repository.getHistoricalData(interval, startTime, limit)
                 .onSuccess { klines ->
-                    // ✨ [추가] 이동평균선 계산 로직
                     if (klines.isNotEmpty()) {
                         val closePrices = klines.map { (it[4] as String).toDouble() }
-                        // 주의: TechnicalIndicatorCalculator는 내부적으로 충분한 데이터가 없으면 NaN을 반환합니다.
                         val sma5 = com.example.mp_btc.domain.TechnicalIndicatorCalculator.calculateSMA(closePrices, 5)
                         val sma20 = com.example.mp_btc.domain.TechnicalIndicatorCalculator.calculateSMA(closePrices, 20)
                         val sma60 = com.example.mp_btc.domain.TechnicalIndicatorCalculator.calculateSMA(closePrices, 60)
@@ -128,10 +135,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * TFLite 모델을 사용하여 오늘의 종가를 예측하고 UI 상태를 업데이트합니다.
+     */
     fun predictPrice() {
         viewModelScope.launch {
             _toastMessage.value = "예측 값을 계산 중입니다..."
-            // 예측 후 UI state가 null이 되도록 하여, 버튼을 다시 눌렀을 때도 Activity 이동이 일어나도록 함
             _predictionUiState.value = null
 
             repository.getHistoricalData("1d", null, 100)
@@ -148,6 +157,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * 예측된 USD 가격을 환율에 따라 원화 또는 달러 문자열로 포맷팅합니다.
+     * @param predictedUsd 예측된 가격 (USD).
+     * @param rate USD/KRW 환율.
+     * @return 화면에 표시될 최종 문자열.
+     */
     private fun formatPrediction(predictedUsd: Double, rate: Double?): String {
         return if (rate != null) {
             val krwPrice = predictedUsd * rate
@@ -157,8 +172,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * API로부터 받은 Ticker 데이터를 화면에 표시할 UI 상태 객체로 변환합니다.
+     * @param data 바이낸스 24시간 Ticker 응답 데이터.
+     * @param rate USD/KRW 환율.
+     * @return 가격 표시를 위한 PriceUiState 객체.
+     */
     private fun formatPriceUiState(data: com.example.mp_btc.model.Binance24hrTickerResponse, rate: Double?): PriceUiState {
-        // ... 이 함수의 내용은 이전과 동일 ...
         val context = getApplication<Application>().applicationContext
         val currentPriceUsd = data.lastPrice.toDouble()
         val priceChangePercent = data.priceChangePercent.toDouble()
@@ -192,6 +212,4 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         return PriceUiState(priceText, changeText, changeColor)
     }
-
-
 }

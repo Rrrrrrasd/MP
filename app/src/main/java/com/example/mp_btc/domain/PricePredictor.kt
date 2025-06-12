@@ -18,12 +18,11 @@ import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
 /**
- * TFLite 모델을 사용하여 가격 예측을 담당하는 클래스
+ * TFLite 모델을 사용하여 비트코인 가격 예측을 수행하는 클래스.
+ * @param context Asset 파일 로드를 위한 애플리케이션 컨텍스트.
  */
 class PricePredictor(private val context: Context) {
 
-    // 원본 MainActivity의 내부 데이터 클래스들을 이 클래스 안으로 가져오거나,
-    // 별도 model 파일로 분리할 수 있습니다. 여기서는 내부에 정의합니다.
     private data class ScalerParams(
         val feature_data_min: List<Double>,
         val feature_data_max: List<Double>,
@@ -45,6 +44,9 @@ class PricePredictor(private val context: Context) {
     private val scalerParams: ScalerParams
     private val LOOK_BACK = 5
 
+    /**
+     * 클래스 초기화 시 TFLite 모델 및 예측에 필요한 JSON 파일들을 로드합니다.
+     */
     init {
         try {
             tflite = Interpreter(loadModelFile())
@@ -57,9 +59,9 @@ class PricePredictor(private val context: Context) {
     }
 
     /**
-     * k-line 데이터를 받아 가격을 예측합니다.
-     * @param klines 예측에 필요한 과거 데이터
-     * @return 예측된 USD 가격, 실패 시 null
+     * K-line(시계열) 데이터를 받아 다음 날의 종가를 예측합니다.
+     * @param klines 예측에 사용할 과거 K-line 데이터 리스트.
+     * @return 예측된 USD 가격을 반환하며, 실패 시 null을 반환합니다.
      */
     fun predict(klines: List<List<Any>>): Double? {
         if (klines.size < LOOK_BACK + 19) {
@@ -75,7 +77,12 @@ class PricePredictor(private val context: Context) {
         }
     }
 
-    // 원본의 processDataForPrediction 로직을 이 클래스에 맞게 수정
+    /**
+     * K-line 데이터를 파싱하고, 기술적 지표를 계산한 뒤,
+     * 데이터를 정규화하여 TFLite 모델에 입력하고, 예측 결과를 역정규화하여 반환합니다.
+     * @param klines 원본 K-line 데이터.
+     * @return 예측된 USD 가격.
+     */
     private fun processDataAndPredict(klines: List<List<Any>>): Double? {
         Log.d("PredictionLogic", "Starting data processing for prediction. Klines received: ${klines.size}")
 
@@ -97,7 +104,6 @@ class PricePredictor(private val context: Context) {
         val closePrices = parsedKlines.map { it.close }
         val volumes = parsedKlines.map { it.volume }
 
-        // TechnicalIndicatorCalculator 사용
         val sma5 = TechnicalIndicatorCalculator.calculateSMA(closePrices, 5)
         val sma10 = TechnicalIndicatorCalculator.calculateSMA(closePrices, 10)
         val sma20 = TechnicalIndicatorCalculator.calculateSMA(closePrices, 20)
@@ -126,9 +132,6 @@ class PricePredictor(private val context: Context) {
 
         val finalSequenceRaw = allFeaturesData.takeLast(LOOK_BACK)
         Log.d("PredictionLogic", "Step 3: Final sequence of ${finalSequenceRaw.size} prepared.")
-
-        // ... (이하 스케일링, 버퍼 생성, 추론, 역스케일링 로직은 원본과 동일)
-        // ... 최종적으로 Double 타입의 predictedPriceUsd를 반환
 
         val scaledInput2D = Array(LOOK_BACK) { FloatArray(featureColumns.size) }
         for (i in 0 until LOOK_BACK) {
@@ -177,6 +180,10 @@ class PricePredictor(private val context: Context) {
         return predictedPriceUsd
     }
 
+    /**
+     * assets 폴더에서 TFLite 모델 파일을 로드합니다.
+     * @return 로드된 모델을 MappedByteBuffer 형태로 반환합니다.
+     */
     private fun loadModelFile(): MappedByteBuffer {
         val fileDescriptor = context.assets.openFd("btc_price_predictor_model.tflite")
         return FileInputStream(fileDescriptor.fileDescriptor).channel.map(
@@ -186,6 +193,10 @@ class PricePredictor(private val context: Context) {
         )
     }
 
+    /**
+     * assets 폴더에서 모델이 사용하는 특성(feature) 목록을 JSON 파일로부터 로드합니다.
+     * @return 특성 이름의 리스트를 반환합니다.
+     */
     private fun loadFeatureColumns(): List<String> {
         context.assets.open("feature_columns.json").use { inputStream ->
             BufferedReader(InputStreamReader(inputStream)).use { reader ->
@@ -194,6 +205,10 @@ class PricePredictor(private val context: Context) {
         }
     }
 
+    /**
+     * assets 폴더에서 데이터 정규화/역정규화에 필요한 파라미터들을 JSON 파일로부터 로드합니다.
+     * @return Scaler 파라미터 객체를 반환합니다.
+     */
     private fun loadScalerParams(): ScalerParams {
         context.assets.open("scaler_params.json").use { inputStream ->
             BufferedReader(InputStreamReader(inputStream)).use { reader ->

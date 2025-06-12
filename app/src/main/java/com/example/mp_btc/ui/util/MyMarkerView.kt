@@ -19,7 +19,11 @@ class MyMarkerView(context: Context, layoutResource: Int, private val usdToKrwRa
     private val usdFormat = DecimalFormat("$#,##0.00")
     private val sdf = SimpleDateFormat("yy/MM/dd HH:mm", Locale.getDefault())
 
-    // Entry가 선택될 때마다 호출됩니다.
+    /**
+     * 차트에서 특정 데이터 포인트가 선택될 때마다 호출되어 마커의 내용을 업데이트합니다.
+     * @param e 선택된 데이터 Entry.
+     * @param highlight 선택된 하이라이트 정보.
+     */
     override fun refreshContent(e: Entry, highlight: Highlight) {
         val date = sdf.format(Date(e.x.toLong()))
         val price = if (usdToKrwRate != null) krwFormat.format(e.y) else usdFormat.format(e.y)
@@ -28,9 +32,11 @@ class MyMarkerView(context: Context, layoutResource: Int, private val usdToKrwRa
         super.refreshContent(e, highlight)
     }
 
-    // 마커의 위치를 조정합니다.
+    /**
+     * 화면에 표시될 마커의 위치 오프셋을 결정합니다.
+     * @return 마커의 x, y 오프셋을 담은 MPPointF 객체.
+     */
     override fun getOffset(): MPPointF {
-        // x축으로는 중앙, y축으로는 터치 포인트 위로 이동
         return MPPointF(-(width / 2f), -height.toFloat() - 10)
     }
 }
