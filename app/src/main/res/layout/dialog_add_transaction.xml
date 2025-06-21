@@ -9,9 +9,10 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="새 거래 추가"
-        android:textColor="@color/text_primary_dark"
+        android:textColor="@color/black"
         android:textSize="20sp"
-        android:textStyle="bold" />
+        android:textStyle="bold"
+        />
 
     <RadioGroup
         android:id="@+id/rgTransactionType"
@@ -26,7 +27,7 @@
             android:layout_height="wrap_content"
             android:checked="true"
             android:text="매수"
-            android:textColor="@color/text_secondary_dark" />
+            android:textColor="@color/black" />
 
         <RadioButton
             android:id="@+id/rbSell"
@@ -34,7 +35,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
             android:text="매도"
-            android:textColor="@color/text_secondary_dark" />
+            android:textColor="@color/black" />
     </RadioGroup>
 
     <EditText
@@ -44,17 +45,17 @@
         android:layout_marginTop="16dp"
         android:hint="BTC 수량 (예: 0.1)"
         android:inputType="numberDecimal"
-        android:textColor="@color/text_primary_dark"
-        android:textColorHint="@color/text_secondary_dark" />
+        android:textColor="@color/black"
+        android:textColorHint="@color/black" />
 
     <EditText
         android:id="@+id/etPrice"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:hint="1 BTC당 가격 (USD)"
-        android:inputType="numberDecimal"
-        android:textColor="@color/text_primary_dark"
-        android:textColorHint="@color/text_secondary_dark" />
+        android:hint="1 BTC당 가격 (원)"
+        android:inputType="number"
+        android:textColor="@color/black"
+        android:textColorHint="@color/black" />
 
 </LinearLayout>

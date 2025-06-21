@@ -12,7 +12,7 @@ interface TransactionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: Transaction)
 
-    @Query("SELECT * FROM transactions ORDER BY timestamp DESC")
+    @Query("SELECT * FROM transactions ORDER BY timestamp ASC")
     fun getAllTransactions(): LiveData<List<Transaction>>
 
     @Query("DELETE FROM transactions")

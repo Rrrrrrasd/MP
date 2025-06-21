@@ -5,6 +5,7 @@ package com.example.mp_btc
 import android.os.Bundle
 import android.widget.EditText
 import android.widget.RadioButton
+import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -138,22 +139,46 @@ class PortfolioActivity : AppCompatActivity() {
         val etPrice = dialogView.findViewById<EditText>(R.id.etPrice)
         val rbBuy = dialogView.findViewById<RadioButton>(R.id.rbBuy)
 
+        // --- 현재가 자동 입력을 위한 로직 추가 ---
+        val currentKrwRate = mainViewModel.usdToKrwRate.value
+        // 메인 화면의 가격 문자열에서 USD 가격을 파싱합니다. (예: "₩94,123,456 ($70,123.45)")
+        val currentPriceUsd = mainViewModel.priceUiState.value?.let {
+            it.priceText.toString().substringAfter("(").substringBefore(")").replace(Regex("[^0-9.]"), "").toDoubleOrNull()
+        }
+
+        // 환율과 현재가 정보가 모두 있을 경우에만 원화 가격을 계산하여 미리 입력해줍니다.
+        if (currentKrwRate != null && currentPriceUsd != null) {
+            val currentPriceKrw = (currentPriceUsd * currentKrwRate).toLong() // 소수점 버림
+            etPrice.setText(currentPriceKrw.toString())
+        }
+        // --- 로직 추가 끝 ---
+
+
         MaterialAlertDialogBuilder(this)
             .setView(dialogView)
             .setNegativeButton("취소", null)
             .setPositiveButton("저장") { _, _ ->
-                val amountText = etAmount.text.toString()
-                val priceText = etPrice.text.toString()
+                val krwRate = mainViewModel.usdToKrwRate.value
+                if (krwRate == null || krwRate <= 0) {
+                    Toast.makeText(this, "환율 정보가 없어 거래를 추가할 수 없습니다.", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
 
-                if (amountText.isNotEmpty() && priceText.isNotEmpty()) {
+                val amountText = etAmount.text.toString()
+                val priceKrwText = etPrice.text.toString()
+
+                if (amountText.isNotEmpty() && priceKrwText.isNotEmpty()) {
                     val amount = amountText.toDouble()
-                    val price = priceText.toDouble()
+                    val priceKrw = priceKrwText.toDouble()
+
+                    val priceUsd = priceKrw / krwRate
+
                     val type = if (rbBuy.isChecked) "BUY" else "SELL"
 
                     val transaction = Transaction(
                         type = type,
                         amount = amount,
-                        pricePerBtc = price,
+                        pricePerBtc = priceUsd,
                         timestamp = System.currentTimeMillis()
                     )
                     portfolioViewModel.insert(transaction)
