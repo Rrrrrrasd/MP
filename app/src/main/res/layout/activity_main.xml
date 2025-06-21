@@ -1,147 +1,158 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.drawerlayout.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/drawer_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#121212"
-    tools:context=".MainActivity">
+    tools:context=".MainActivity"
+    tools:openDrawer="start">
 
-    <TextView
-        android:id="@+id/tvTitle"
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#121212">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="@color/background_dark"
+            app:layout_constraintTop_toTopOf="parent"
+            app:titleTextColor="@color/text_primary_dark" />
+
+        <TextView
+            android:id="@+id/tvTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="@string/bitcoin_price_label"
+            android:textColor="#E0E0E0"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            app:layout_constraintBottom_toBottomOf="@+id/toolbar"
+            app:layout_constraintStart_toEndOf="@id/toolbar"
+            app:layout_constraintTop_toTopOf="@+id/toolbar" />
+
+
+        <ImageButton
+            android:id="@+id/btnRefresh"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="16dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="새로고침"
+            android:src="@drawable/ic_refresh"
+            app:layout_constraintBottom_toBottomOf="@+id/toolbar"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/toolbar"
+            app:tint="#A0A0A0" />
+
+        <TextView
+            android:id="@+id/tvBitcoinPrice"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:gravity="center"
+            android:textColor="#E0E0E0"
+            android:textSize="48sp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/toolbar"
+            tools:text="₩94,123,456\n($65,432.10)" />
+
+        <TextView
+            android:id="@+id/tvPriceChange"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="18sp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tvBitcoinPrice"
+            tools:text="+275.30 (+0.72%)"
+            tools:textColor="#26A69A" />
+
+        <com.github.mikephil.charting.charts.LineChart
+            android:id="@+id/priceLineChart"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="16dp"
+            app:layout_constraintBottom_toTopOf="@+id/llTimeFilters"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tvPriceChange" />
+
+        <LinearLayout
+            android:id="@+id/llTimeFilters"
+            style="?android:attr/buttonBarStyle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="16dp"
+            android:orientation="horizontal"
+            app:layout_constraintBottom_toTopOf="@+id/tvBottomPredict"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent">
+
+            <Button
+                android:id="@+id/btn1Day"
+                style="@style/TimeFilterButton"
+                android:text="@string/time_1d" />
+
+            <Button
+                android:id="@+id/btn5Day"
+                style="@style/TimeFilterButton"
+                android:text="@string/time_5d" />
+
+            <Button
+                android:id="@+id/btn1Month"
+                style="@style/TimeFilterButton"
+                android:text="@string/time_1m" />
+
+            <Button
+                android:id="@+id/btn6Months"
+                style="@style/TimeFilterButton"
+                android:text="@string/time_6m" />
+
+            <Button
+                android:id="@+id/btn1Year"
+                style="@style/TimeFilterButton"
+                android:text="@string/time_1y" />
+
+            <Button
+                android:id="@+id/btnAll"
+                style="@style/TimeFilterButton"
+                android:text="@string/time_all" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvBottomPredict"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_marginStart="24dp"
+            android:layout_marginEnd="24dp"
+            android:layout_marginBottom="24dp"
+            android:background="@drawable/gradient_button_background"
+            android:gravity="center"
+            android:text="@string/show_prediction_button_text"
+            android:textColor="@color/white"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <com.google.android.material.navigation.NavigationView
+        android:id="@+id/navigation_view"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="24dp"
-        android:layout_marginTop="32dp"
-        android:text="@string/bitcoin_price_label"
-        android:textColor="#E0E0E0"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        app:headerLayout="@layout/nav_header"
+        app:menu="@menu/drawer_menu" />
 
-    <ImageButton
-        android:id="@+id/btnRefresh"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_marginEnd="16dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="새로고침"
-        android:src="@drawable/ic_refresh"
-        app:layout_constraintBottom_toBottomOf="@id/tvTitle"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@id/tvTitle"
-        app:tint="#A0A0A0" />
-
-    <TextView
-        android:id="@+id/tvBitcoinPrice"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:gravity="center"
-        android:textColor="#E0E0E0"
-        android:textSize="48sp"
-        android:textStyle="bold"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tvTitle"
-        tools:text="₩94,123,456\n($65,432.10)" />
-
-    <TextView
-        android:id="@+id/tvPriceChange"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="18sp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tvBitcoinPrice"
-        tools:text="+275.30 (+0.72%)"
-        tools:textColor="#26A69A" />
-
-    <com.github.mikephil.charting.charts.LineChart
-        android:id="@+id/priceLineChart"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_marginTop="24dp"
-        android:layout_marginBottom="16dp"
-        app:layout_constraintBottom_toTopOf="@+id/llTimeFilters"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tvPriceChange" />
-
-    <LinearLayout
-        android:id="@+id/llTimeFilters"
-        style="?android:attr/buttonBarStyle"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="16dp"
-        android:orientation="horizontal"
-        app:layout_constraintBottom_toTopOf="@+id/tvBottomPredict"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
-
-        <Button
-            android:id="@+id/btn1Day"
-            style="@style/TimeFilterButton"
-            android:text="@string/time_1d" />
-
-        <Button
-            android:id="@+id/btn5Day"
-            style="@style/TimeFilterButton"
-            android:text="@string/time_5d" />
-
-        <Button
-            android:id="@+id/btn1Month"
-            style="@style/TimeFilterButton"
-            android:text="@string/time_1m" />
-
-        <Button
-            android:id="@+id/btn6Months"
-            style="@style/TimeFilterButton"
-            android:text="@string/time_6m" />
-
-        <Button
-            android:id="@+id/btn1Year"
-            style="@style/TimeFilterButton"
-            android:text="@string/time_1y" />
-
-        <Button
-            android:id="@+id/btnAll"
-            style="@style/TimeFilterButton"
-            android:text="@string/time_all" />
-    </LinearLayout>
-
-    <Button
-        android:id="@+id/btnGoToPortfolio"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="24dp"
-        android:layout_marginEnd="24dp"
-        android:layout_marginBottom="16dp"
-        android:text="내 포트폴리오 보기"
-        android:background="@drawable/details_card_background"
-        android:textColor="@color/text_primary_dark"
-        app:layout_constraintBottom_toTopOf="@id/tvBottomPredict"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
-
-    <TextView
-        android:id="@+id/tvBottomPredict"
-        android:layout_width="0dp"
-        android:layout_height="56dp"
-        android:layout_marginStart="24dp"
-        android:layout_marginEnd="24dp"
-        android:layout_marginBottom="24dp"
-        android:background="@drawable/gradient_button_background"
-        android:gravity="center"
-        android:text="@string/show_prediction_button_text"
-        android:textColor="@color/white"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
-
-</androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.drawerlayout.widget.DrawerLayout>

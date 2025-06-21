@@ -1,55 +1,64 @@
 package com.example.mp_btc
 
 import android.content.Intent
-import android.content.res.ColorStateList
-import android.graphics.Color
-import android.graphics.Typeface
 import android.os.Bundle
+import android.view.MenuItem
 import android.widget.Button
 import android.widget.Toast
 import androidx.activity.viewModels
+import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.GravityCompat
 import com.example.mp_btc.databinding.ActivityMainBinding
 import com.example.mp_btc.ui.util.ChartManager
 import com.example.mp_btc.viewmodel.MainViewModel
+import com.google.android.material.navigation.NavigationView
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
 
     private lateinit var binding: ActivityMainBinding
     private val viewModel: MainViewModel by viewModels()
     private lateinit var chartManager: ChartManager
-    private var currentSelectedPeriod: String = "1"
+    private lateinit var toggle: ActionBarDrawerToggle
+    private var currentSelectedPeriod: String = "1" // 기간 선택 변수 복원
 
-    /**
-     * 액티비티 생성 시 호출되며, 뷰 바인딩, 차트 매니저 초기화,
-     * 버튼 리스너 설정 및 ViewModel 관찰을 시작합니다.
-     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // 툴바 설정
+        setSupportActionBar(binding.toolbar)
+        supportActionBar?.setDisplayShowTitleEnabled(false)
+
+        // 내비게이션 드로어 설정
+        toggle = ActionBarDrawerToggle(
+            this,
+            binding.drawerLayout,
+            binding.toolbar,
+            R.string.navigation_drawer_open,
+            R.string.navigation_drawer_close
+        )
+        binding.drawerLayout.addDrawerListener(toggle)
+        toggle.drawerArrowDrawable.color = ContextCompat.getColor(this, R.color.white)
+        toggle.syncState()
+        binding.navigationView.setNavigationItemSelectedListener(this)
+
+        // 차트 매니저 초기화
         chartManager = ChartManager(binding.priceLineChart, this)
 
         setupButtonListeners()
         observeViewModel()
 
+        // 기본 차트 데이터 로드 및 버튼 선택 상태 초기화 (복원)
         binding.btn1Day.post {
             updateButtonSelectionUI(binding.btn1Day)
             viewModel.fetchHistoricalData("1")
         }
-
-        binding.btnGoToPortfolio.setOnClickListener {
-            val intent = Intent(this, PortfolioActivity::class.java)
-            startActivity(intent)
-        }
     }
 
-    /**
-     * 차트 기간 선택 버튼(1일, 5일 등), 새로고침 버튼, 예측 버튼에 대한
-     * 클릭 리스너를 설정합니다.
-     */
+    // 시간 필터 버튼 리스너 포함하여 복원
     private fun setupButtonListeners() {
         val buttons = mapOf(
             binding.btn1Day to "1",
@@ -66,21 +75,10 @@ class MainActivity : AppCompatActivity() {
                 viewModel.fetchHistoricalData(period)
             }
         }
+
         binding.btnRefresh.setOnClickListener {
             viewModel.fetchInitialData()
-            val selectedButton = listOf(binding.btn1Day, binding.btn5Day, binding.btn1Month, binding.btn6Months, binding.btn1Year, binding.btnAll)
-                .firstOrNull { (it as? com.google.android.material.button.MaterialButton)?.backgroundTintList?.defaultColor == ContextCompat.getColor(this, R.color.time_filter_button_selected_background) }
-
-            val period = when (selectedButton?.id) {
-                R.id.btn1Day -> "1"
-                R.id.btn5Day -> "5"
-                R.id.btn1Month -> "30"
-                R.id.btn6Months -> "180"
-                R.id.btn1Year -> "365"
-                R.id.btnAll -> "max"
-                else -> "1"
-            }
-            viewModel.fetchHistoricalData(period)
+            viewModel.fetchHistoricalData(currentSelectedPeriod) // 현재 선택된 기간으로 새로고침
         }
 
         binding.tvBottomPredict.setOnClickListener {
@@ -88,10 +86,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * ViewModel의 LiveData를 관찰하여 UI를 업데이트합니다.
-     * 가격, 차트 데이터, 토스트 메시지, 예측 결과에 대한 변경사항을 감지하고 처리합니다.
-     */
     private fun observeViewModel() {
         viewModel.priceUiState.observe(this) { state ->
             binding.tvBitcoinPrice.text = state.priceText
@@ -101,7 +95,7 @@ class MainActivity : AppCompatActivity() {
 
         viewModel.chartData.observe(this) { chartUpdateData ->
             val currentRate = viewModel.usdToKrwRate.value
-            chartManager.updateChartWithMA(chartUpdateData, currentRate, currentSelectedPeriod)
+            chartManager.updateChartWithMA(chartUpdateData, currentRate, currentSelectedPeriod) // 변수 사용하도록 복원
         }
 
         viewModel.toastMessage.observe(this) { message ->
@@ -123,11 +117,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * 사용자가 선택한 기간 버튼의 UI를 활성화 상태로 변경하고,
-     * 나머지 버튼들은 비활성화 상태로 되돌립니다.
-     * @param selectedBtn 사용자가 선택한 버튼 객체
-     */
+    // 버튼 선택 UI 업데이트 함수 (복원)
     private fun updateButtonSelectionUI(selectedBtn: Button) {
         val allButtons = listOf(
             binding.btn1Day, binding.btn5Day, binding.btn1Month,
@@ -136,11 +126,34 @@ class MainActivity : AppCompatActivity() {
         allButtons.forEach { button ->
             if (button == selectedBtn) {
                 button.isSelected = true
-                button.setTextColor(ContextCompat.getColor(this, R.color.text_primary_dark)) // 선택된 버튼 텍스트 색상
+                button.setTextColor(ContextCompat.getColor(this, R.color.text_primary_dark))
             } else {
                 button.isSelected = false
-                button.setTextColor(ContextCompat.getColor(this, R.color.text_secondary_dark)) // 기본 텍스트 색상
+                button.setTextColor(ContextCompat.getColor(this, R.color.text_secondary_dark))
             }
+        }
+    }
+
+    // 드로어 메뉴 아이템 클릭 처리
+    override fun onNavigationItemSelected(item: MenuItem): Boolean {
+        when (item.itemId) {
+            R.id.nav_portfolio -> {
+                startActivity(Intent(this, PortfolioActivity::class.java))
+            }
+            R.id.nav_news -> {
+                startActivity(Intent(this, NewsActivity::class.java))
+            }
+        }
+        binding.drawerLayout.closeDrawer(GravityCompat.START)
+        return true
+    }
+
+    // 뒤로가기 버튼 눌렀을 때 드로어가 열려있으면 닫기
+    override fun onBackPressed() {
+        if (binding.drawerLayout.isDrawerOpen(GravityCompat.START)) {
+            binding.drawerLayout.closeDrawer(GravityCompat.START)
+        } else {
+            super.onBackPressed()
         }
     }
 }

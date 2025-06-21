@@ -34,6 +34,10 @@
             android:name=".PortfolioActivity"
             android:label="My Portfolio"
             android:parentActivityName=".MainActivity" />
+        <activity
+            android:name=".NewsActivity"
+            android:label="Latest News"
+            android:parentActivityName=".MainActivity" />
 
     </application>
 

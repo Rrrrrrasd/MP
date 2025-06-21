@@ -1,10 +1,12 @@
 package com.example.mp_btc.repository
 
 import android.icu.text.SimpleDateFormat
+import com.example.mp_btc.model.Article
 import com.example.mp_btc.model.Binance24hrTickerResponse
 import com.example.mp_btc.model.KeximExchangeRate
 import com.example.mp_btc.network.ApiClient
 import com.example.mp_btc.network.KeximApiClient
+import com.example.mp_btc.network.NewsApiClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Calendar
@@ -88,5 +90,18 @@ class BtcRepository {
         }
         // 5번의 시도 모두 실패 시
         return@withContext Result.failure(Exception("Failed to get exchange rate data in the last 5 days."))
+    }
+
+    suspend fun getBitcoinNews(): Result<List<Article>> = withContext(Dispatchers.IO) {
+        try {
+            val response = NewsApiClient.instance.getBitcoinNews(apiKey = NewsApiClient.getApiKey()).execute()
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!.articles)
+            } else {
+                Result.failure(Exception("News API Error: ${response.code()} ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }
