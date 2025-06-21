@@ -7,7 +7,7 @@ object NewsApiClient {
     private const val BASE_URL = "https://newsapi.org/"
 
     // 중요: 여기에 발급받은 NewsAPI 키를 입력하세요.
-    private const val API_KEY = "6064ee4105e24d68b8fbbba660ecda29"
+    private const val API_KEY = ""
 
     val instance: NewsApiService by lazy {
         val retrofit = Retrofit.Builder()
