@@ -26,7 +26,6 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "KEXIM_API_KEY", "\"${localProperties.getProperty("KEXIM_API_KEY")}\"")
         buildConfigField("String", "NEWS_API_KEY", "\"${localProperties.getProperty("NEWS_API_KEY")}\"")
     }
 

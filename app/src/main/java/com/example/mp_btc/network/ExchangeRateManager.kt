@@ -23,7 +23,6 @@ object ExchangeRateManager {
      * 앱 시작 시 Application 클래스에서 호출됩니다.
      */
     suspend fun initializeRate() {
-        // 이미 환율 정보가 있거나, 현재 가져오는 중이면 다시 호출하지 않음
         if (usdToKrwRate != null || isFetching) {
             return
         }
@@ -31,24 +30,13 @@ object ExchangeRateManager {
         isFetching = true
         try {
             Log.d("ExchangeRateManager", "환율 정보 가져오기 시작...")
-            // IO 스레드에서 네트워크 작업 수행
             withContext(Dispatchers.IO) {
                 repository.getExchangeRate()
-                    .onSuccess { rates ->
-                        // API 호출 성공 시
-                        if (rates.isNotEmpty() && rates.first().result == 1) {
-                            val rate = rates.find { it.currencyUnit == "USD" }
-                                ?.dealBaseRate?.replace(",", "")?.toDoubleOrNull()
-
-                            usdToKrwRate = rate
-                            Log.d("ExchangeRateManager", "환율 정보 가져오기 성공: $usdToKrwRate")
-                        } else {
-                            // API에서 에러 코드를 반환한 경우
-                            Log.e("ExchangeRateManager", "환율 정보 API 오류: ${rates.firstOrNull()?.result}")
-                        }
+                    .onSuccess { rate -> // List<KeximExchangeRate> 대신 바로 Double 값을 받음
+                        usdToKrwRate = rate
+                        Log.d("ExchangeRateManager", "환율 정보 가져오기 성공: $usdToKrwRate")
                     }
                     .onFailure { e ->
-                        // 네트워크 오류 등 예외 발생 시
                         Log.e("ExchangeRateManager", "환율 정보 로드 실패", e)
                     }
             }

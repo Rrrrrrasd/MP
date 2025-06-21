@@ -3,9 +3,8 @@ package com.example.mp_btc.repository
 import android.icu.text.SimpleDateFormat
 import com.example.mp_btc.model.Article
 import com.example.mp_btc.model.Binance24hrTickerResponse
-import com.example.mp_btc.model.KeximExchangeRate
 import com.example.mp_btc.network.ApiClient
-import com.example.mp_btc.network.KeximApiClient
+import com.example.mp_btc.network.CurrencyApiClient
 import com.example.mp_btc.network.NewsApiClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -59,37 +58,23 @@ class BtcRepository {
      * 한국수출입은행에서 현재 환율 정보를 비동기적으로 가져옵니다.
      * @return API 호출 결과를 담은 Result 객체.
      */
-    suspend fun getExchangeRate(): Result<List<KeximExchangeRate>> = withContext(Dispatchers.IO) {
-        val apiKey = KeximApiClient.getApiKey()
-        val calendar = Calendar.getInstance()
-        val dateFormat = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
-
-        // 최대 5번까지 재시도 (오늘, 어제, 그제...)
-        for (i in 0..4) {
-            try {
-                val searchDate = dateFormat.format(calendar.time)
-                val response = KeximApiClient.instance.getExchangeRates(apiKey, searchDate).execute()
-
-                if (response.isSuccessful && response.body() != null) {
-                    val rates = response.body()!!
-                    // 데이터가 비어있지 않고, 결과 코드가 성공(1)이면 성공으로 간주하고 반환
-                    if (rates.isNotEmpty() && rates.first().result == 1) {
-                        return@withContext Result.success(rates)
-                    }
+    suspend fun getExchangeRate(): Result<Double> = withContext(Dispatchers.IO) {
+        try {
+            val response = CurrencyApiClient.instance.getExchangeRate().execute()
+            if (response.isSuccessful && response.body() != null) {
+                // "KRW" 키로 환율 값을 찾아 반환, 없으면 실패 처리
+                val rate = response.body()!!.rates["KRW"]
+                if (rate != null) {
+                    Result.success(rate)
+                } else {
+                    Result.failure(Exception("USD to KRW rate not found in API response."))
                 }
-                // 하루 전으로 날짜를 변경하여 다음 루프에서 재시도
-                calendar.add(Calendar.DAY_OF_YEAR, -1)
-
-            } catch (e: Exception) {
-                // 네트워크 오류 등 예외 발생 시 마지막 시도였다면 실패 반환
-                if (i == 4) {
-                    return@withContext Result.failure(e)
-                }
-                calendar.add(Calendar.DAY_OF_YEAR, -1)
+            } else {
+                Result.failure(Exception("API Error: ${response.code()} ${response.message()}"))
             }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
-        // 5번의 시도 모두 실패 시
-        return@withContext Result.failure(Exception("Failed to get exchange rate data in the last 5 days."))
     }
 
     suspend fun getBitcoinNews(): Result<List<Article>> = withContext(Dispatchers.IO) {
