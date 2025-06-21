@@ -105,8 +105,14 @@ class MainActivity : AppCompatActivity() {
 
         viewModel.predictionUiState.observe(this) { state ->
             state?.let {
-                val intent = Intent(this, PredictionActivity::class.java)
-                intent.putExtra(PredictionActivity.EXTRA_PREDICTED_PRICE, it.displayString)
+                val intent = Intent(this, PredictionActivity::class.java).apply {
+                    putExtra(PredictionActivity.EXTRA_PREDICTED_PRICE_USD, it.predictedUsdPrice)
+                    putExtra(PredictionActivity.EXTRA_LAST_CLOSE_PRICE_USD, it.lastCloseUsdPrice)
+                    putExtra(PredictionActivity.EXTRA_BASIS_TIMESTAMP, it.basisTimestamp)
+                    it.usdToKrwRate?.let { rate ->
+                        putExtra(PredictionActivity.EXTRA_USD_TO_KRW_RATE, rate)
+                    }
+                }
                 startActivity(intent)
             }
         }

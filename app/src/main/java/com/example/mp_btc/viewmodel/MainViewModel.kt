@@ -23,9 +23,12 @@ data class PriceUiState(
     val changeTextColorRes: Int
 )
 
+// PredictionUiState를 확장하여 더 많은 데이터를 담도록 변경
 data class PredictionUiState(
     val predictedUsdPrice: Double,
-    val displayString: String
+    val lastCloseUsdPrice: Double,
+    val basisTimestamp: Long,
+    val usdToKrwRate: Double?
 )
 
 data class ChartUpdateData(
@@ -141,34 +144,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun predictPrice() {
         viewModelScope.launch {
             _toastMessage.value = "예측 값을 계산 중입니다..."
-            _predictionUiState.value = null
+            _predictionUiState.value = null // 이전 상태 초기화
 
             repository.getHistoricalData("1d", null, 100)
                 .onSuccess { klines ->
-                    val predictedUsd = predictor.predict(klines)
-                    if (predictedUsd != null) {
-                        val displayString = formatPrediction(predictedUsd, _usdToKrwRate.value)
-                        _predictionUiState.value = PredictionUiState(predictedUsd, displayString)
+                    if (klines.isNotEmpty()) {
+                        val predictedUsd = predictor.predict(klines)
+                        val lastKline = klines.last()
+                        val lastCloseUsd = (lastKline[4] as String).toDouble()
+                        val basisTimestamp = (lastKline[0] as Double).toLong()
+
+                        if (predictedUsd != null) {
+                            _predictionUiState.value = PredictionUiState(
+                                predictedUsdPrice = predictedUsd,
+                                lastCloseUsdPrice = lastCloseUsd,
+                                basisTimestamp = basisTimestamp,
+                                usdToKrwRate = _usdToKrwRate.value
+                            )
+                        } else {
+                            _toastMessage.value = "예측 값을 계산하는데 실패했습니다."
+                        }
                     } else {
-                        _toastMessage.value = "예측 값을 계산하는데 실패했습니다."
+                        _toastMessage.value = "예측에 필요한 데이터가 부족합니다."
                     }
                 }
                 .onFailure { _toastMessage.value = "예측용 데이터 로드 실패: ${it.message}" }
-        }
-    }
-
-    /**
-     * 예측된 USD 가격을 환율에 따라 원화 또는 달러 문자열로 포맷팅합니다.
-     * @param predictedUsd 예측된 가격 (USD).
-     * @param rate USD/KRW 환율.
-     * @return 화면에 표시될 최종 문자열.
-     */
-    private fun formatPrediction(predictedUsd: Double, rate: Double?): String {
-        return if (rate != null) {
-            val krwPrice = predictedUsd * rate
-            "₩" + DecimalFormat("#,##0").format(krwPrice)
-        } else {
-            "$" + DecimalFormat("#,##0.00").format(predictedUsd) + " (환율 정보 없음)"
         }
     }
 
@@ -191,7 +191,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val absoluteChangeKrw = data.priceChange.toDouble() * rate
 
             val krwStr = DecimalFormat("'₩',##0").format(currentPriceKrw)
-            val usdStrInParentheses = " (${DecimalFormat("'$',##0").format(currentPriceUsd)})"
+            val usdStrInParentheses = " (${DecimalFormat("'$',##0.00").format(currentPriceUsd)})"
             val spannable = SpannableString(krwStr + usdStrInParentheses)
             spannable.setSpan(RelativeSizeSpan(0.7f), krwStr.length, spannable.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
             spannable.setSpan(ForegroundColorSpan(ContextCompat.getColor(context, R.color.text_secondary_dark)), krwStr.length, spannable.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
@@ -203,7 +203,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         } else {
             priceText = DecimalFormat("'$',##0.00").format(currentPriceUsd)
 
-            val formattedAbsoluteChange = DecimalFormat("+#,##0.0;-#,##0.0").format(data.priceChange.toDouble())
+            val formattedAbsoluteChange = DecimalFormat("+#,##0.00;-#,##0.00").format(data.priceChange.toDouble())
             val formattedPercentage = DecimalFormat("+#0.00'%';-#0.00'%'").format(priceChangePercent)
             changeText = String.format(Locale.getDefault(), "%s (%s)", formattedAbsoluteChange, formattedPercentage)
         }
