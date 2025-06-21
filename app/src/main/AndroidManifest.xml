@@ -5,6 +5,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
+        android:name=".MyApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -28,6 +29,14 @@
         <activity
             android:name=".PredictionActivity"
             android:label="@string/title_activity_prediction"
+            android:parentActivityName=".MainActivity" />
+        <activity
+            android:name=".PortfolioActivity"
+            android:label="My Portfolio"
+            android:parentActivityName=".MainActivity" />
+        <activity
+            android:name=".NewsActivity"
+            android:label="Latest News"
             android:parentActivityName=".MainActivity" />
 
     </application>

@@ -15,4 +15,6 @@
     <string name="prediction_failed">예측 값을 가져오는데 실패했습니다.</string>
     <string name="krw_currency_symbol">₩</string>
     <string name="exchange_rate_unavailable">(환율 정보 없음)</string>
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
 </resources>
