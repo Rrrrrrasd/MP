@@ -46,10 +46,11 @@ class ChartManager(
             setDrawGridBackground(false)
             axisRight.isEnabled = false
 
+
             legend.apply {
                 isEnabled = true
                 form = Legend.LegendForm.LINE
-                textColor = Color.WHITE
+                textColor = ContextCompat.getColor(context, R.color.text_secondary_dark)
                 textSize = 12f
                 verticalAlignment = Legend.LegendVerticalAlignment.TOP
                 horizontalAlignment = Legend.LegendHorizontalAlignment.CENTER
@@ -62,19 +63,19 @@ class ChartManager(
                 valueFormatter = DateAxisValueFormatter()
                 granularity = 1f
                 setDrawGridLines(false)
-                textColor = Color.WHITE
+                textColor = ContextCompat.getColor(context, R.color.text_secondary_dark)
                 textSize = 12f
                 setDrawAxisLine(true)
-                axisLineColor = Color.WHITE
+                axisLineColor = ContextCompat.getColor(context, R.color.text_secondary_dark)
                 setLabelCount(5, true)
             }
 
             axisLeft.apply {
                 setDrawGridLines(false)
-                textColor = Color.WHITE
+                textColor = ContextCompat.getColor(context, R.color.text_secondary_dark)
                 textSize = 12f
                 setDrawAxisLine(true)
-                axisLineColor = Color.WHITE
+                axisLineColor = ContextCompat.getColor(context, R.color.text_secondary_dark)
             }
         }
     }
@@ -123,9 +124,12 @@ class ChartManager(
             highLightColor = Color.GRAY
         }
 
-        val sma5DataSet = createMaDataSet(sma5Entries, "SMA 5", Color.YELLOW)
-        val sma20DataSet = createMaDataSet(sma20Entries, "SMA 20", Color.CYAN)
-        val sma60DataSet = createMaDataSet(sma60Entries, "SMA 60", Color.MAGENTA)
+        val sma5Color = Color.parseColor("#4FC3F7")
+        val sma20Color = Color.parseColor("#BA68C8")
+        val sma60Color = Color.parseColor("#FFD54F")
+        val sma5DataSet = createMaDataSet(sma5Entries, "SMA 5", sma5Color)
+        val sma20DataSet = createMaDataSet(sma20Entries, "SMA 20", sma20Color)
+        val sma60DataSet = createMaDataSet(sma60Entries, "SMA 60", sma60Color)
 
         val lineData = LineData(priceDataSet, sma5DataSet, sma20DataSet, sma60DataSet)
         lineChart.data = lineData

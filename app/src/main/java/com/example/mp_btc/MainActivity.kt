@@ -123,15 +123,12 @@ class MainActivity : AppCompatActivity() {
             binding.btn6Months, binding.btn1Year, binding.btnAll
         )
         allButtons.forEach { button ->
-            val materialButton = button as? com.google.android.material.button.MaterialButton
             if (button == selectedBtn) {
-                materialButton?.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.time_filter_button_selected_background))
-                button.setTextColor(Color.BLACK)
-                button.setTypeface(null, Typeface.BOLD)
+                button.isSelected = true
+                button.setTextColor(ContextCompat.getColor(this, R.color.text_primary_dark)) // 선택된 버튼 텍스트 색상
             } else {
-                materialButton?.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.time_filter_button_default_background))
-                button.setTextColor(ContextCompat.getColor(this, R.color.text_primary_dark))
-                button.setTypeface(null, Typeface.NORMAL)
+                button.isSelected = false
+                button.setTextColor(ContextCompat.getColor(this, R.color.text_secondary_dark)) // 기본 텍스트 색상
             }
         }
     }

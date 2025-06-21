@@ -2,16 +2,14 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="dark_gray">#212121</color>
-    <color name="medium_gray">#424242</color>
-    <color name="light_gray">#616161</color>
-    <color name="light_blue_selected">#81D4FA</color>
-    <color name="text_primary_dark">#FFFFFFFF</color>
-    <color name="text_secondary_dark">#B3FFFFFF</color>
-    <color name="positive_green">#4CAF50</color>
-    <color name="negative_red">#F44336</color>
 
-    <color name="time_filter_button_default_background">@color/dark_gray</color>
-    <color name="time_filter_button_selected_background">@color/light_blue_selected</color>
+    <color name="background_dark">#121212</color>
+    <color name="component_dark">#1E1E1E</color>
+    <color name="text_primary_dark">#E0E0E0</color>
+    <color name="text_secondary_dark">#A0A0A0</color>
+    <color name="accent_gradient_start">#4A90E2</color>
+    <color name="accent_gradient_end">#F5515F</color>
+    <color name="positive_green">#26A69A</color>
+    <color name="negative_red">#EF5350</color>
+    <color name="time_filter_button_selected_background">#334A90E2</color>
 </resources>
-
