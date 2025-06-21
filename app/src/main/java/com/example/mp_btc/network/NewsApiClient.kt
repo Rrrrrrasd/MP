@@ -1,5 +1,6 @@
 package com.example.mp_btc.network
 
+import com.example.mp_btc.BuildConfig
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
@@ -7,7 +8,7 @@ object NewsApiClient {
     private const val BASE_URL = "https://newsapi.org/"
 
     // 중요: 여기에 발급받은 NewsAPI 키를 입력하세요.
-    private const val API_KEY = ""
+    private const val API_KEY = BuildConfig.NEWS_API_KEY
 
     val instance: NewsApiService by lazy {
         val retrofit = Retrofit.Builder()

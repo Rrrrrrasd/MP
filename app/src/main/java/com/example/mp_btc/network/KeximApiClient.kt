@@ -1,17 +1,20 @@
 package com.example.mp_btc.network
 
+
+import com.example.mp_btc.BuildConfig
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+
 /**
  * 한국수출입은행(KEXIM) 환율 정보 API 통신을 위한 Retrofit 클라이언트 객체.
  */
 object KeximApiClient {
     private const val BASE_URL = "https://www.koreaexim.go.kr/"
-    private const val AUTH_KEY = ""
+    private const val AUTH_KEY = BuildConfig.KEXIM_API_KEY
 
     val instance: KeximApiService by lazy {
         val retrofit = Retrofit.Builder()
