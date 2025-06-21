@@ -16,6 +16,7 @@ import com.example.mp_btc.repository.BtcRepository
 import kotlinx.coroutines.launch
 import java.text.DecimalFormat
 import java.util.Locale
+import com.example.mp_btc.network.ExchangeRateManager
 
 data class PriceUiState(
     val priceText: CharSequence,
@@ -43,9 +44,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = BtcRepository()
     private val predictor = PricePredictor(application.applicationContext)
 
-    private val _usdToKrwRate = MutableLiveData<Double?>(null)
-    val usdToKrwRate: LiveData<Double?> = _usdToKrwRate
-
     private val _priceUiState = MutableLiveData<PriceUiState>()
     val priceUiState: LiveData<PriceUiState> = _priceUiState
 
@@ -57,6 +55,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _toastMessage = MutableLiveData<String>()
     val toastMessage: LiveData<String> = _toastMessage
+
+    private val _usdToKrwRate = MutableLiveData<Double?>(ExchangeRateManager.usdToKrwRate)
+    val usdToKrwRate: LiveData<Double?> = _usdToKrwRate
 
     /**
      * ViewModel 초기화 시, 현재 가격과 환율 정보를 가져옵니다.
@@ -71,25 +72,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun fetchInitialData() {
         viewModelScope.launch {
             _toastMessage.value = "데이터를 새로고침합니다..."
+            // 1. 현재 가격 정보 가져오기
             fetchCurrentPrice()
-            repository.getExchangeRate()
-                .onSuccess { rates ->
-                    if (rates.isNotEmpty() && rates.first().result == 1) {
-                        _usdToKrwRate.value = rates.find { it.currencyUnit == "USD" }
-                            ?.dealBaseRate?.replace(",", "")?.toDoubleOrNull()
-                    } else {
-                        val reason = when (rates.firstOrNull()?.result) {
-                            2 -> "DATA 코드 오류"
-                            3 -> "인증키 오류"
-                            4 -> "일일 요청 횟수 초과"
-                            else -> "알 수 없는 API 오류"
-                        }
-                        _toastMessage.value = "환율 정보 API 오류: $reason"
-                    }
-                }
-                .onFailure {
-                    _toastMessage.value = "환율 정보 로드 실패 (네트워크 오류)"
-                }
+            // 2. ExchangeRateManager에 저장된 최신 환율 정보로 LiveData 업데이트
+            if (_usdToKrwRate.value != ExchangeRateManager.usdToKrwRate) {
+                _usdToKrwRate.value = ExchangeRateManager.usdToKrwRate
+            }
         }
     }
 
@@ -100,7 +88,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.get24hrTicker()
                 .onSuccess { data ->
-                    _priceUiState.value = formatPriceUiState(data, _usdToKrwRate.value)
+                    // ExchangeRateManager에서 가져온 환율 정보를 사용합니다.
+                    _priceUiState.value = formatPriceUiState(data, ExchangeRateManager.usdToKrwRate)
                 }
                 .onFailure { _toastMessage.value = "가격 정보 로드 실패: ${it.message}" }
         }
@@ -159,7 +148,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 predictedUsdPrice = predictedUsd,
                                 lastCloseUsdPrice = lastCloseUsd,
                                 basisTimestamp = basisTimestamp,
-                                usdToKrwRate = _usdToKrwRate.value
+                                // 저장된 환율 정보를 사용합니다.
+                                usdToKrwRate = ExchangeRateManager.usdToKrwRate
                             )
                         } else {
                             _toastMessage.value = "예측 값을 계산하는데 실패했습니다."
