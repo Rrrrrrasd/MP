@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("kotlin-kapt")
 }
 
 android {
@@ -76,6 +77,10 @@ dependencies {
     // MPAndroidChart (차트 라이브러리)
     implementation ("com.github.PhilJay:MPAndroidChart:v3.1.0")
 
+    val room_version = "2.6.1"
+    implementation("androidx.room:room-runtime:$room_version")
+    kapt("androidx.room:room-compiler:$room_version")
+    implementation("androidx.room:room-ktx:$room_version")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

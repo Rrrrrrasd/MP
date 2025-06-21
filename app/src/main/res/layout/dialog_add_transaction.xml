@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="새 거래 추가"
+        android:textColor="@color/text_primary_dark"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <RadioGroup
+        android:id="@+id/rgTransactionType"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:orientation="horizontal">
+
+        <RadioButton
+            android:id="@+id/rbBuy"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="매수"
+            android:textColor="@color/text_secondary_dark" />
+
+        <RadioButton
+            android:id="@+id/rbSell"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="매도"
+            android:textColor="@color/text_secondary_dark" />
+    </RadioGroup>
+
+    <EditText
+        android:id="@+id/etAmount"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:hint="BTC 수량 (예: 0.1)"
+        android:inputType="numberDecimal"
+        android:textColor="@color/text_primary_dark"
+        android:textColorHint="@color/text_secondary_dark" />
+
+    <EditText
+        android:id="@+id/etPrice"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:hint="1 BTC당 가격 (USD)"
+        android:inputType="numberDecimal"
+        android:textColor="@color/text_primary_dark"
+        android:textColorHint="@color/text_secondary_dark" />
+
+</LinearLayout>

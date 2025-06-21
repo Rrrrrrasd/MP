@@ -39,6 +39,11 @@ class MainActivity : AppCompatActivity() {
             updateButtonSelectionUI(binding.btn1Day)
             viewModel.fetchHistoricalData("1")
         }
+
+        binding.btnGoToPortfolio.setOnClickListener {
+            val intent = Intent(this, PortfolioActivity::class.java)
+            startActivity(intent)
+        }
     }
 
     /**

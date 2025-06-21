@@ -29,6 +29,10 @@
             android:name=".PredictionActivity"
             android:label="@string/title_activity_prediction"
             android:parentActivityName=".MainActivity" />
+        <activity
+            android:name=".PortfolioActivity"
+            android:label="My Portfolio"
+            android:parentActivityName=".MainActivity" />
 
     </application>
 
