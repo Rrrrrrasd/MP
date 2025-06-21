@@ -8,6 +8,7 @@ plugins {
     id("kotlin-kapt")
 }
 
+// local.properties 파일에서 API 키를 로드.
 val localProperties = Properties()
 val localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
@@ -26,6 +27,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // BuildConfig를 통해 News API 키를 주입.
         buildConfigField("String", "NEWS_API_KEY", "\"${localProperties.getProperty("NEWS_API_KEY")}\"")
     }
 
@@ -49,6 +51,7 @@ android {
     kotlinOptions {
         jvmTarget = "11"
     }
+    // 빌드 기능 활성화 (ViewBinding, BuildConfig).
     buildFeatures {
         compose = true
         viewBinding = true

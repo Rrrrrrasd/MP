@@ -22,6 +22,7 @@ object CurrencyApiClient {
 
 // Frankfurter API 엔드포인트 정의
 interface CurrencyApiService {
+    // 최신 환율 정보를 가져온다.
     @GET("latest")
     fun getExchangeRate(
         @Query("from") from: String = "USD",

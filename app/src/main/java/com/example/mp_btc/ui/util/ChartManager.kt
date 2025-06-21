@@ -26,16 +26,15 @@ class ChartManager(
     private val lineChart: LineChart,
     private val context: Context
 ) {
-    /**
-     * 클래스 초기화 시 차트의 기본 설정을 수행합니다.
-     */
+
+    //클래스 초기화 시 차트의 기본 설정을 수행합니다.
     init {
         setupChart()
     }
 
-    /**
-     * 차트의 외형 및 기본 속성(범례, 축 등)을 설정합니다.
-     */
+
+    //차트의 외형 및 기본 속성(범례, 축 등)을 설정합니다.
+
     private fun setupChart() {
         lineChart.apply {
             description.isEnabled = false
